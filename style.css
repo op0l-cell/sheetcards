@@ -645,10 +645,12 @@ header {
    ========================================== */
 .btn-exit-landscape {
   display: none;
+  justify-content: center;
+  align-items: center;
   position: fixed;
-  top: 12px;
-  right: 16px;
-  background: rgba(0, 0, 0, 0.7);
+  top: 16px;
+  right: 30px;
+  background: rgba(0, 0, 0, 0.5);
   color: white;
   border: 2px solid white;
   width: 40px;
@@ -656,9 +658,12 @@ header {
   border-radius: 50%;
   font-size: 18px;
   font-weight: bold;
+  padding: 0;
+  line-height: 1;
   z-index: 9999;
   cursor: pointer;
 }
+
 
 @media (orientation: landscape) and (max-height: 550px) {
   body:not(.exit-fullscreen-landscape) {
