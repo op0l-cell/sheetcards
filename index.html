@@ -2,184 +2,301 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>SheetCards - เว็บแฟลชการ์ด</title>
   
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css" />
 </head>
 <body data-theme="vanilla-pink">
 
-  <div class="app-container">
-    <header>
-      <div class="brand-title">📑 SheetCards</div>
-      <div class="counter-badge" id="card-counter">0 / 0</div>
-    </header>
+  <div class="app-container" id="app-container">
+    
+    <!-- ปุ่มกากบาทออกจากโหมดเต็มจอแนวนอน กลับสู่ Dashboard แนวนอนปกติ -->
+    <button type="button" class="btn-exit-landscape" id="btn-exit-landscape" title="ออกจากโหมดเต็มจอ">✕</button>
 
-    <!-- โซนเลือกโฟลเดอร์ -->
-    <div class="folder-section">
-      <select class="folder-dropdown" id="folder-select"></select>
-      <button class="btn-small" id="btn-add-folder">➕ โฟลเดอร์</button>
-    </div>
+    <!-- ======================================================== -->
+    <!-- แท็บที่ 1: หน้าเล่นการ์ด (Flashcard View)                 -->
+    <!-- ======================================================== -->
+    <section class="tab-view active" id="view-play">
+      <!-- เส้นความคืบหน้าการท่องจำ -->
+      <div class="progress-bar-container">
+        <div class="progress-bar-fill" id="study-progress-bar"></div>
+      </div>
 
-    <!-- โซนแท็ก (Tags) -->
-    <div class="tag-section" id="tag-container"></div>
-
-    <!-- โซนเลือกชุดคำ (Decks) -->
-    <div class="deck-scroll" id="deck-container"></div>
-
-    <!-- แฟลชการ์ด -->
-    <div class="card-scene">
-      <div class="card" id="flashcard">
-        <div class="card-face">
-          <span class="tag-label" id="card-tag">หมวดหมู่</span>
-          <div class="word-text" id="front-text">กำลังโหลดข้อมูล...</div>
-          <div class="hint-text">(แตะที่การ์ดเพื่อดูคำแปล)</div>
+      <header>
+        <div class="brand-title">📑 SheetCards</div>
+        <div class="header-tools">
+          <button type="button" class="btn-tool" id="btn-shuffle-deck" title="สุ่มลำดับคำศัพท์">🔀</button>
+          <button type="button" class="btn-tool" id="btn-reverse-deck" title="สลับหน้า-หลัง (Reverse)">🔄</button>
+          <div class="counter-badge" id="card-counter">0 / 0</div>
         </div>
-        <div class="card-face card-face-back">
-          <span class="tag-label">คำแปล / คำอ่าน</span>
-          <div class="word-text" id="back-text">-</div>
-          <div class="hint-text" id="hint-text">-</div>
+      </header>
+    
+      <!-- โซนเลือกโฟลเดอร์ -->
+      <div class="folder-section">
+        <div class="folder-select-group">
+          <select class="folder-dropdown" id="folder-select"></select>
+          <button type="button" class="btn-icon-danger" id="btn-delete-folder" title="ลบโฟลเดอร์นี้">🗑️</button>
+        </div>
+        <button type="button" class="btn-small" id="btn-add-folder">➕ โฟลเดอร์</button>
+      </div>
+
+      <!-- โซนแท็ก (Tags) -->
+      <div class="tag-section" id="tag-container"></div>
+
+      <!-- โซนเลือกชุดคำ (Decks) -->
+      <div class="deck-scroll" id="deck-container"></div>
+
+      <!-- แฟลชการ์ด 3D -->
+      <div class="card-scene">
+        <div class="card" id="flashcard">
+          <div class="card-face">
+            <span class="tag-label" id="card-tag">หมวดหมู่</span>
+            <div class="word-text" id="front-text">กำลังโหลดข้อมูล...</div>
+            <div class="hint-text" id="front-subhint">(แตะที่การ์ดเพื่อดูคำแปล)</div>
+          </div>
+          <div class="card-face card-face-back">
+            <span class="tag-label">คำแปล / คำอ่าน</span>
+            <div class="word-text" id="back-text">-</div>
+            <div class="hint-text" id="hint-text">-</div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- ปุ่มควบคุมการ์ด -->
-    <div class="card-actions">
-      <button class="btn-nav" id="btn-prev">◀ ก่อนหน้า</button>
-      <button class="btn-nav" id="btn-next">ถัดไป ▶</button>
-    </div>
-  </div>
+      <!-- ปุ่มควบคุมการ์ด 4 ปุ่ม -->
+      <div class="card-actions">
+        <button type="button" class="btn-nav" id="btn-first" title="ไปหน้าแรกสุด">|◀</button>
+        <button type="button" class="btn-nav" id="btn-prev">◀ ก่อนหน้า</button>
+        <button type="button" class="btn-nav" id="btn-next">ถัดไป ▶</button>
+        <button type="button" class="btn-nav" id="btn-last" title="ไปหน้าสุดท้าย">▶|</button>
+      </div>
 
-  <!-- แถบเมนูด้านล่าง -->
+      <!-- ปุ่มระบบท่องจำ Spaced Repetition (ทบทวนใหม่ / จำได้) -->
+      <div class="spaced-actions">
+        <button type="button" class="btn-spaced repeat" id="btn-spaced-repeat">🔁 ทบทวนใหม่ (ต่อท้าย)</button>
+        <button type="button" class="btn-spaced pass" id="btn-spaced-pass">✓ จำได้แล้ว</button>
+      </div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- แท็บที่ 2: หน้าฝากลิงก์ชีต (Saved Sheets View)            -->
+    <!-- ======================================================== -->
+    <section class="tab-view" id="view-sheets">
+      <header>
+        <div class="brand-title">🔗 คลังลิงก์ชีต</div>
+        <div class="header-actions" id="sheets-header-actions">
+          <button type="button" class="btn-icon-action" id="btn-open-add-sheet" title="เพิ่มลิงก์ชีต">➕</button>
+        </div>
+        <div class="selection-actions" id="sheets-selection-actions" style="display:none;">
+          <span class="selected-count" id="sheets-selected-count">เลือก 0</span>
+          <button type="button" class="btn-action-pill danger" id="btn-delete-selected-sheets">🗑️ ลบ</button>
+          <button type="button" class="btn-action-pill" id="btn-cancel-sheets-selection">เสร็จสิ้น</button>
+        </div>
+      </header>
+      <p class="tab-subtext">กดค้างเพื่อเลือกหลายรายการ หรือเลื่อนขวาเพื่อคัดลอก/ลบ</p>
+      
+      <div class="swipe-list" id="sheets-list-container"></div>
+    </section>
+
+    <!-- ======================================================== -->
+    <!-- แท็บที่ 3: หน้ารวมโฟลเดอร์ (Folders View)                  -->
+    <!-- ======================================================== -->
+    <section class="tab-view" id="view-folders">
+      <header>
+        <div class="brand-title">📁 จัดการโฟลเดอร์</div>
+        <div class="header-actions" id="folders-header-actions">
+          <button type="button" class="btn-icon-action secondary" id="btn-open-sort-menu" title="เรียงลำดับ">🔃</button>
+          <button type="button" class="btn-icon-action" id="btn-folder-view-add" title="สร้างโฟลเดอร์ใหม่">➕</button>
+        </div>
+        <div class="selection-actions" id="folders-selection-actions" style="display:none;">
+          <span class="selected-count" id="folders-selected-count">เลือก 0</span>
+          <button type="button" class="btn-action-pill danger" id="btn-delete-selected-folders">🗑️ ลบ</button>
+          <button type="button" class="btn-action-pill" id="btn-cancel-folders-selection">เสร็จสิ้น</button>
+        </div>
+      </header>
+      <p class="tab-subtext">กดค้างเพื่อเลือกหลายรายการ แตะปุ่มสามเหลี่ยมเพื่อพับ/กางชุดคำ</p>
+      
+      <div class="folder-accordion-list" id="folders-view-container"></div>
+    </section>
+
+  </div> <!-- ปิด app-container -->
+
+  <!-- แถบเมนูด้านล่าง (Bottom Navigation) -->
   <nav class="bottom-nav">
-    <button class="nav-item active" id="nav-home">
-      <span class="nav-icon">🏠</span>
-      <span>หน้าแรก</span>
+    <button type="button" class="nav-item active" data-target="view-play" id="nav-play">
+      <span class="nav-icon">🎴</span>
+      <span>เล่นการ์ด</span>
     </button>
     
-    <div class="nav-item-add">
-      <button class="btn-add-circle" id="btn-open-create">➕</button>
-    </div>
+    <button type="button" class="nav-item" data-target="view-sheets" id="nav-sheets">
+      <span class="nav-icon">🔗</span>
+      <span>ฝากลิงก์ชีต</span>
+    </button>
 
-    <button class="nav-item" id="nav-profile">
+    <button type="button" class="nav-item" data-target="view-folders" id="nav-folders">
+      <span class="nav-icon">📁</span>
+      <span>โฟลเดอร์</span>
+    </button>
+
+    <button type="button" class="nav-item" id="nav-profile">
       <span class="nav-icon" id="bottom-avatar-icon">🌸</span>
       <span>โปรไฟล์</span>
     </button>
   </nav>
 
-  <!-- Modal สำหรับหน้าโปรไฟล์ & การตั้งค่า -->
+  <!-- ======================================================== -->
+  <!-- MODALS                                                   -->
+  <!-- ======================================================== -->
+
+  <!-- Modal สร้าง/แก้ไขชุดคำ (Dual-Mode: วางข้อความ / ลิงก์ชีต + แจกเทมเพลต) -->
+  <div class="modal-overlay" id="create-modal">
+    <div class="modal-box">
+      <h3 id="deck-modal-title">🌸 สร้างชุดคำศัพท์ใหม่</h3>
+      <select id="modal-folder-select"></select>
+      <input type="text" id="modal-deck-name" placeholder="ชื่อชุดคำ (เช่น Vocab บทที่ 1)" />
+
+      <!-- สลับโหมดการสร้าง -->
+      <div class="mode-switch-container">
+        <button type="button" class="mode-tab active" id="tab-mode-paste" onclick="switchCreateMode('paste')">📋 กล่องวางข้อความ</button>
+        <button type="button" class="mode-tab" id="tab-mode-sheet" onclick="switchCreateMode('sheet')">🔗 ลิงก์ชีต</button>
+      </div>
+
+      <!-- โหมดวางข้อความ -->
+      <div id="mode-paste-content" class="create-mode-panel active">
+        <textarea 
+          id="modal-paste-raw" 
+          rows="5" 
+          placeholder="ก๊อปปี้จาก Sheets/Excel/ข้อความมาวางที่นี่ได้เลย (มีรูปให้ใส่ URL รูป)...&#10;ตัวอย่าง:&#10;student	นักเรียน, นักศึกษา	สตู-เดินท&#10;https://example.com/apple.png	แอปเปิ้ล	ผลไม้"
+        ></textarea>
+        <div class="template-bar">
+          <small class="hint-subtext">* ตรวจจับหัวตารางและรูปภาพให้อัตโนมัติ</small>
+          <button type="button" class="btn-copy-template" id="btn-copy-template">📋 ก็อปปี้โครงสร้างแม่แบบ</button>
+        </div>
+      </div>
+
+      <!-- โหมดลิงก์ Google Sheets -->
+      <div id="mode-sheet-content" class="create-mode-panel">
+        <input type="url" id="modal-sheet-url" placeholder="วางลิงก์ Google Sheets (แชร์อ่านสาธารณะ)" />
+        <small class="hint-subtext">* รองรับการระบุแท็บชีตย่อยด้วย GID</small>
+      </div>
+
+      <input type="text" id="modal-deck-tag" placeholder="ระบุแท็ก (เช่น ทบทวน, เสร็จสิ้น)" />
+      <input type="hidden" id="edit-deck-id" value="" />
+      
+      <div class="modal-buttons">
+        <button type="button" class="btn-cancel" onclick="closeModal('create-modal')">ยกเลิก</button>
+        <button type="button" class="btn-save" id="btn-save-deck">บันทึกชุดคำ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal เมนูเรียงลำดับ -->
+  <div class="modal-overlay" id="sort-modal">
+    <div class="modal-box">
+      <h3>🔃 เรียงลำดับโฟลเดอร์ & ชุดคำ</h3>
+      <div class="sort-options-list">
+        <button type="button" class="sort-opt-btn" id="btn-sort-alphabet">🔤 เรียงตามตัวอักษร (A-Z / ก-ฮ)</button>
+        <button type="button" class="sort-opt-btn" id="btn-sort-date">📅 เรียงตามวันที่ (<span id="date-sort-indicator">แรก ➔ ท้าย</span>)</button>
+        <button type="button" class="sort-opt-btn" id="btn-sort-custom">✋ แบบกำหนดเอง (ลากย้ายตำแหน่ง)</button>
+      </div>
+      <div class="modal-buttons" style="margin-top:12px;">
+        <button type="button" class="btn-cancel" onclick="closeModal('sort-modal')">ปิด</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal หน้าโปรไฟล์, การตั้งค่า, สำรองข้อมูล (Export/Import) -->
   <div class="modal-overlay" id="profile-modal">
     <div class="modal-box">
       <h3>👤 โปรไฟล์ & การตั้งค่า</h3>
       
-      <!-- ข้อมูลผู้ใช้ -->
       <div class="profile-card">
         <div class="avatar-display" id="profile-avatar">🌸</div>
         <strong id="profile-name">ผู้ใช้งานทั่วไป</strong>
         <p class="profile-sub" id="profile-status">บัญชีในเครื่อง (Local)</p>
       </div>
 
-            <!-- เลือกเปลี่ยนไอคอนโปรไฟล์ (สไลด์แนวนอน) -->
       <div class="setting-group">
         <label class="setting-label">เลือกไอคอนโปรไฟล์:</label>
         <div class="avatar-picker" id="avatar-picker">
-          <button class="avatar-btn" data-avatar="🌸">🌸</button>
-          <button class="avatar-btn" data-avatar="🍏">🍏</button>
-          <button class="avatar-btn" data-avatar="🦊">🦊</button>
-          <button class="avatar-btn" data-avatar="🐰">🐰</button>
-          <button class="avatar-btn" data-avatar="🍙">🍙</button>
-          <button class="avatar-btn" data-avatar="☕">☕</button>
-          <button class="avatar-btn" data-avatar="🪼">🪼</button>
-          <button class="avatar-btn" data-avatar="🌼">🌼</button>
-          <button class="avatar-btn" data-avatar="🍓">🍓</button>
-          <button class="avatar-btn" data-avatar="🍀">🍀</button>
-          <button class="avatar-btn" data-avatar="⭐">⭐</button>
-          <button class="avatar-btn" data-avatar="🎀">🎀</button>
-          <button class="avatar-btn" data-avatar="🍡">🍡</button>
-          <button class="avatar-btn" data-avatar="☁️">☁️</button>
+          <button type="button" class="avatar-btn" data-avatar="🌸">🌸</button>
+          <button type="button" class="avatar-btn" data-avatar="🍏">🍏</button>
+          <button type="button" class="avatar-btn" data-avatar="🦊">🦊</button>
+          <button type="button" class="avatar-btn" data-avatar="🐰">🐰</button>
+          <button type="button" class="avatar-btn" data-avatar="🍙">🍙</button>
+          <button type="button" class="avatar-btn" data-avatar="☕">☕</button>
+          <button type="button" class="avatar-btn" data-avatar="🪼">🪼</button>
+          <button type="button" class="avatar-btn" data-avatar="🌼">🌼</button>
+          <button type="button" class="avatar-btn" data-avatar="🍓">🍓</button>
+          <button type="button" class="avatar-btn" data-avatar="🍀">🍀</button>
+          <button type="button" class="avatar-btn" data-avatar="⭐">⭐</button>
+          <button type="button" class="avatar-btn" data-avatar="🎀">🎀</button>
         </div>
       </div>
 
-
-      <!-- เลือกเปลี่ยนธีมสี -->
       <div class="setting-group">
         <label class="setting-label">🎨 ธีมสีของแอป:</label>
         <div class="theme-picker">
-          <button class="theme-btn" data-theme="vanilla-pink" style="background: #F472B6; color: white;">นมเย็น</button>
-          <button class="theme-btn" data-theme="matcha-green" style="background: #9EBE8D; color: white;">ชาเขียว</button>
-          <button class="theme-btn" data-theme="sunset-cream" style="background: #F59E0B; color: white;">ซันเซ็ต</button>
-          <button class="theme-btn" data-theme="ocean-blue" style="background: #47AEC4; color: white;">ทะเล</button>
+          <button type="button" class="theme-btn" data-theme="vanilla-pink" style="background: #F472B6; color: white;">นมเย็น</button>
+          <button type="button" class="theme-btn" data-theme="matcha-green" style="background: #10B981; color: white;">ชาเขียว</button>
+          <button type="button" class="theme-btn" data-theme="sunset-cream" style="background: #F59E0B; color: white;">ซันเซ็ต</button>
+          <button type="button" class="theme-btn" data-theme="ocean-blue" style="background: #0284C7; color: white;">ทะเล</button>
         </div>
       </div>
 
-      <!-- สรุปสถิติ -->
+      <!-- ปุ่มสำรองและกู้คืนข้อมูล (Export / Import JSON) -->
+      <div class="setting-group">
+        <label class="setting-label">💾 สำรองข้อมูลออฟไลน์:</label>
+        <div class="backup-actions">
+          <button type="button" class="btn-backup" id="btn-export-backup">📤 ส่งออกสำรอง (JSON)</button>
+          <label class="btn-backup" for="import-backup-file">📥 นำเข้าสำรอง
+            <input type="file" id="import-backup-file" accept=".json" style="display:none;" />
+          </label>
+        </div>
+      </div>
+
       <div class="stats-box">
         <div>📁 โฟลเดอร์: <strong id="stat-folders">0</strong></div>
         <div>🌸 ชุดคำศัพท์: <strong id="stat-decks">0</strong></div>
       </div>
 
-      <!-- ปุ่มเลือกประเภทบัญชี -->
       <div class="auth-buttons">
-        <button class="btn-auth google" id="btn-login-google">🔗 ล็อกอิน Google</button>
-        <button class="btn-auth local" id="btn-create-local-user">👤 สร้างตัวตนใหม่ในเว็บ</button>
+        <button type="button" class="btn-auth google" id="btn-login-google">🔗 ล็อกอิน Google</button>
+        <button type="button" class="btn-auth local" id="btn-create-local-user">👤 สร้างตัวตนใหม่ในเว็บ</button>
       </div>
 
       <div class="modal-buttons" style="margin-top: 14px;">
-        <button class="btn-cancel" onclick="closeModal('profile-modal')">ปิดหน้าต่าง</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('profile-modal')">ปิดหน้าต่าง</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal สร้างตัวตนใหม่ในเว็บ -->
-  <div class="modal-overlay" id="local-user-modal">
+  <!-- Modal ฝากลิงก์ชีตใหม่ -->
+  <div class="modal-overlay" id="add-sheet-modal">
     <div class="modal-box">
-      <h3>👤 สร้างบัญชีตัวตนใหม่ในเว็บ</h3>
-      <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 12px;">
-        สร้างโปรไฟล์เพื่อใช้งานในเครื่องนี้ (ใช้ระบบคัดลอกลิงก์ Google Sheets มาวาง)
-      </p>
-      <input type="text" id="input-username" placeholder="กรอกชื่อของคุณ" />
+      <h3>🔗 ฝากลิงก์ Google Sheet</h3>
+      <input type="text" id="input-saved-sheet-name" placeholder="ชื่อชีต (ไม่กรอกก็ได้)" />
+      <input type="url" id="input-saved-sheet-url" placeholder="วางลิงก์ Google Sheets *" required />
       <div class="modal-buttons">
-        <button class="btn-cancel" onclick="closeModal('local-user-modal')">ยกเลิก</button>
-        <button class="btn-save" id="btn-confirm-local-user">สร้างบัญชี</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('add-sheet-modal')">ยกเลิก</button>
+        <button type="button" class="btn-save" id="btn-confirm-save-sheet">บันทึกชีต</button>
       </div>
     </div>
   </div>
 
-  <!-- Modal เพิ่มโฟลเดอร์ -->
+  <!-- Modal สร้าง/แก้ไขโฟลเดอร์ -->
   <div class="modal-overlay" id="folder-modal">
     <div class="modal-box">
-      <h3>📁 สร้างโฟลเดอร์ใหม่</h3>
-      <input type="text" id="new-folder-name" placeholder="ชื่อโฟลเดอร์ (เช่น ภาษาจีน HSK)" />
+      <h3 id="folder-modal-title">📁 สร้างโฟลเดอร์ใหม่</h3>
+      <input type="text" id="new-folder-name" placeholder="ชื่อโฟลเดอร์" />
+      <input type="hidden" id="edit-folder-id" value="" />
       <div class="modal-buttons">
-        <button class="btn-cancel" onclick="closeModal('folder-modal')">ยกเลิก</button>
-        <button class="btn-save" id="btn-save-folder">สร้างโฟลเดอร์</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal เพิ่มชุดคำ -->
-  <div class="modal-overlay" id="create-modal">
-    <div class="modal-box">
-      <h3>🌸 สร้างชุดคำศัพท์ใหม่</h3>
-      <select id="modal-folder-select"></select>
-      <input type="text" id="modal-deck-name" placeholder="ชื่อชุดคำ (เช่น N2 คำกริยา)" />
-      
-      <!-- คำแนะนำสำหรับวิธีการนำเข้าชีต -->
-      <div id="sheet-input-container">
-        <input type="url" id="modal-sheet-url" placeholder="วางลิงก์ Google Sheets (แชร์อ่านสาธารณะ)" />
-        <small style="display:block; font-size: 11px; color: var(--text-muted); margin-top: -6px; margin-bottom: 10px;">
-          * ตั้งค่าแชร์ชีตเป็น "ทุกคนที่มีลิงก์มีสิทธิ์อ่าน" แล้วคัดลอกลิงก์มาวาง
-        </small>
-      </div>
-
-      <input type="text" id="modal-deck-tag" placeholder="ระบุแท็ก (เช่น ทบทวน, เสร็จสิ้น)" />
-      <div class="modal-buttons">
-        <button class="btn-cancel" onclick="closeModal('create-modal')">ยกเลิก</button>
-        <button class="btn-save" id="btn-save-deck">สร้างชุดคำ</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('folder-modal')">ยกเลิก</button>
+        <button type="button" class="btn-save" id="btn-save-folder">บันทึก</button>
       </div>
     </div>
   </div>
@@ -188,23 +305,32 @@
   <div class="modal-overlay" id="tag-modal">
     <div class="modal-box">
       <h3>🏷️ สร้างแท็กใหม่</h3>
-      <input type="text" id="new-tag-name" placeholder="ชื่อแท็ก (เช่น เตรียมสอบ, ท่องเช้า)" />
+      <input type="text" id="new-tag-name" placeholder="ชื่อแท็ก" />
       <div class="modal-buttons">
-        <button class="btn-cancel" onclick="closeModal('tag-modal')">ยกเลิก</button>
-        <button class="btn-save" id="btn-save-tag">บันทึกแท็ก</button>
+        <button type="button" class="btn-cancel" onclick="closeModal('tag-modal')">ยกเลิก</button>
+        <button type="button" class="btn-save" id="btn-save-tag">บันทึกแท็ก</button>
       </div>
     </div>
   </div>
-  <!-- Firebase SDK (3 บรรทัดที่คุณมี) -->
+
+  <!-- Modal สร้างตัวตนในเครื่อง -->
+  <div class="modal-overlay" id="local-user-modal">
+    <div class="modal-box">
+      <h3>👤 สร้างบัญชีตัวตนใหม่ในเว็บ</h3>
+      <input type="text" id="input-username" placeholder="กรอกชื่อของคุณ" />
+      <div class="modal-buttons">
+        <button type="button" class="btn-cancel" onclick="closeModal('local-user-modal')">ยกเลิก</button>
+        <button type="button" class="btn-save" id="btn-confirm-local-user">สร้างบัญชี</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-firestore-compat.js"></script>
 
-  <!-- ไฟล์ script หลักของแอป (ต้องอยู่ล่างสุด) -->
-  <script src="script.js"></script>
-</body>
-</html>
-
+  <!-- ไฟล์ script หลัก -->
   <script src="script.js"></script>
 </body>
 </html>
