@@ -133,7 +133,7 @@ header {
   color: var(--text-dark);
   padding: 4px 8px;
   border-radius: 12px;
-  font-size: 13px;
+  font-size: 10px;
   cursor: pointer;
 }
 
@@ -925,6 +925,66 @@ body.exit-fullscreen-landscape .btn-exit-landscape {
 .btn-auth.local { background: var(--light-accent); border: 1px solid var(--secondary); color: var(--text-dark); }
 .sort-options-list { display: flex; flex-direction: column; gap: 8px; }
 .sort-opt-btn { background: var(--light-accent); border: 1px solid var(--secondary); color: var(--text-dark); padding: 12px 14px; border-radius: 12px; font-size: 13px; font-weight: 600; text-align: left; cursor: pointer; }
+
+/* ==========================================
+MANUAL FOCUS MODE & PREVIEW TABLE
+========================================== */
+body.focus-single-card {
+padding-bottom: 0;
+justify-content: center;
+}
+body.focus-single-card header,
+body.focus-single-card .progress-bar-container,
+body.focus-single-card .folder-section,
+body.focus-single-card .tag-section,
+body.focus-single-card .deck-scroll,
+body.focus-single-card .bottom-nav,
+body.focus-single-card #view-sheets,
+body.focus-single-card #view-folders {
+display: none !important;
+}
+body.focus-single-card #view-play {
+display: flex !important;
+height: 100vh;
+justify-content: center;
+align-items: center;
+}
+body.focus-single-card .card-scene {
+height: calc(100vh - 120px) !important;
+max-width: 650px !important;
+}
+body.focus-single-card .btn-exit-landscape {
+display: flex !important;
+}
+.btn-restart-deck {
+background: var(--primary);
+color: white;
+border: none;
+padding: 10px 18px;
+border-radius: 12px;
+font-weight: 600;
+font-size: 14px;
+margin-top: 12px;
+cursor: pointer;
+box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+}
+.preview-table {
+width: 100%;
+border-collapse: collapse;
+font-size: 13px;
+}
+.preview-table th, .preview-table td {
+padding: 8px 10px;
+border-bottom: 1px solid var(--secondary);
+text-align: left;
+}
+.preview-table th {
+background: var(--light-accent);
+color: var(--primary);
+font-weight: 600;
+position: sticky;
+top: 0;
+}
 /* ==========================================
    RESPONSIVE SCALING (TABLET & DESKTOP)
    ========================================== */
@@ -969,7 +1029,7 @@ body.exit-fullscreen-landscape .btn-exit-landscape {
     border-radius: 16px;
   }
 
-    .bottom-nav {
+  .bottom-nav {
     height: 75px;
   }
 
