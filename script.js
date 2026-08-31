@@ -1,10 +1,11 @@
- // ==========================================
+// ==========================================
 // 1. FIREBASE BACKEND SETUP (SAFE MODE)
 // ==========================================
 let auth = null;
 let db = null;
 let googleProvider = null;
 let currentUser = null;
+
 
 const firebaseConfig = {
   apiKey: "AIzaSyBHwlsjsHh51S63NZfvgIwbsvyv4asU6bE",
@@ -91,9 +92,104 @@ let isCustomSorting = false;
 let dateSortAscending = true;
 let currentCreateMode = 'paste';
 
+// ==========================================
+// ระบบบันทึกและสลับบัญชีแยกอิสระ (ISOLATED STORAGE)
+// ==========================================
 function saveState() {
+  if (appState.user.type === 'google' && currentUser) {
+    localStorage.setItem(`sheetcards_google_state_${currentUser.uid}`, JSON.stringify(appState));
+  } else {
+    localStorage.setItem('sheetcards_local_state', JSON.stringify(appState));
+  }
   localStorage.setItem('sheetcards_state', JSON.stringify(appState));
   syncDataToCloud();
+}
+
+function updateAuthUI() {
+  const btnGoogle = document.getElementById('btn-login-google');
+  const btnLocal = document.getElementById('btn-create-local-user');
+  const btnLogout = document.getElementById('btn-logout');
+  const profileStatus = document.getElementById('profile-status');
+  const profileName = document.getElementById('profile-name');
+
+  if (appState.user.type === 'google') {
+    if (btnGoogle) btnGoogle.style.display = 'none';
+    if (btnLocal) btnLocal.style.display = 'none';
+    if (btnLogout) btnLogout.style.display = 'block';
+    if (profileStatus) profileStatus.textContent = '🔗 บัญชี Google (เชื่อมต่อออนไลน์)';
+  } else {
+    if (btnGoogle) btnGoogle.style.display = 'block';
+    if (btnLocal) btnLocal.style.display = 'block';
+    if (btnLogout) btnLogout.style.display = 'none';
+    if (profileStatus) profileStatus.textContent = '👤 บัญชีในเครื่อง (Local)';
+  }
+  if (profileName) profileName.textContent = appState.user.name;
+}
+
+async function loginWithGoogle() {
+  if (!auth || !googleProvider) {
+    alert("⚠️ ระบบล็อกอิน Google จะทำงานเมื่อนำเว็บขึ้นโฮสติ้งจริง (เช่น GitHub Pages) ตอนนี้สามารถใช้โหมด 'สร้างตัวตนใหม่ในเว็บ' ได้ตามปกติครับ");
+    return;
+  }
+  try {
+    const result = await auth.signInWithPopup(googleProvider);
+    currentUser = result.user;
+
+    localStorage.setItem('sheetcards_local_state', JSON.stringify(appState));
+
+    const savedGoogleState = localStorage.getItem(`sheetcards_google_state_${currentUser.uid}`);
+    if (savedGoogleState) {
+      appState = JSON.parse(savedGoogleState);
+    } else {
+      appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+      appState.user.name = currentUser.displayName || "Google User";
+      appState.user.type = "google";
+    }
+
+    await loadUserDataFromCloud(currentUser.uid);
+    saveState();
+    
+    activeFolderId = appState.folders[0]?.id || "";
+    activeDeckId = appState.folders[0]?.decks[0]?.id || "";
+    renderAll();
+    if (activeDeckId) selectDeck(activeDeckId);
+    updateAuthUI();
+
+    closeModal('profile-modal');
+    alert(`✅ ยินดีต้อนรับคุณ ${appState.user.name}!`);
+  } catch (error) {
+    console.error("Login Error:", error);
+    alert("❌ การล็อกอินขัดข้อง: " + error.message);
+  }
+}
+
+function logoutUser() {
+  if (!confirm("คุณต้องการออกจากระบบ Google ใช่หรือไม่?\n(ระบบจะสลับกลับไปยังบัญชีในเครื่อง)")) return;
+
+  if (currentUser) {
+    localStorage.setItem(`sheetcards_google_state_${currentUser.uid}`, JSON.stringify(appState));
+  }
+
+  if (auth) auth.signOut();
+  currentUser = null;
+
+  const localState = localStorage.getItem('sheetcards_local_state');
+  if (localState) {
+    appState = JSON.parse(localState);
+  } else {
+    appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    appState.user.type = 'local';
+  }
+
+  saveState();
+  activeFolderId = appState.folders[0]?.id || "";
+  activeDeckId = appState.folders[0]?.decks[0]?.id || "";
+  renderAll();
+  if (activeDeckId) selectDeck(activeDeckId);
+  updateAuthUI();
+
+  closeModal('profile-modal');
+  alert("🚪 ออกจากระบบเรียบร้อยแล้ว");
 }
 
 async function syncDataToCloud() {
@@ -111,23 +207,18 @@ async function syncDataToCloud() {
   }
 }
 
-async function loginWithGoogle() {
-  if (!auth || !googleProvider) {
-    alert("⚠️ ระบบล็อกอิน Google จะทำงานเมื่อนำเว็บขึ้นโฮสติ้งจริง (เช่น GitHub Pages) ตอนนี้สามารถใช้โหมด 'สร้างตัวตนใหม่ในเว็บ' ได้ตามปกติครับ");
-    return;
-  }
+async function loadUserDataFromCloud(uid) {
+  if (!db) return;
   try {
-    const result = await auth.signInWithPopup(googleProvider);
-    currentUser = result.user;
-    appState.user.name = currentUser.displayName || "Google User";
-    appState.user.type = "google";
-    document.getElementById('profile-name').textContent = appState.user.name;
-    document.getElementById('profile-status').textContent = '🔗 บัญชี Google (เชื่อมต่อออนไลน์แล้ว)';
-    closeModal('profile-modal');
-    alert(`✅ ยินดีต้อนรับคุณ ${appState.user.name}!`);
-  } catch (error) {
-    console.error("Login Error:", error);
-    alert("❌ การล็อกอินขัดข้อง: " + error.message);
+    const doc = await db.collection("users").doc(uid).get();
+    if (doc.exists) {
+      const data = doc.data();
+      if (data.folders) appState.folders = data.folders;
+      if (data.tags) appState.tags = data.tags;
+      if (data.savedSheets) appState.savedSheets = data.savedSheets;
+    }
+  } catch (e) {
+    console.error("Load Data Error:", e);
   }
 }
 
@@ -181,33 +272,54 @@ function switchCreateMode(mode) {
 }
 
 function parsePastedText(rawText) {
-  if (!rawText || !rawText.trim()) return [];
-  const lines = rawText.trim().split(/\r?\n/);
-  const headerKeywords = ["front", "back", "hint", "english", "thai", "vocab", "คำศัพท์", "ความหมาย", "คำแปล", "คำอ่าน"];
-  const parsed = [];
-
-  lines.forEach((line, idx) => {
-    if (!line.trim()) return;
-    let cols = line.split('\t');
-    if (cols.length < 2 && line.includes(',')) cols = line.split(',');
-
-    const firstCol = (cols[0] || "").toLowerCase().trim();
-    const secondCol = (cols[1] || "").toLowerCase().trim();
-
-    if (idx === 0) {
-      const isHeader = headerKeywords.some(k => firstCol.includes(k) || secondCol.includes(k));
-      if (isHeader) return;
-    }
-
-    if (cols.length >= 2) {
-      const front = cols[0]?.trim() || "";
-      const back = cols[1]?.trim() || "";
-      const hint = cols[2]?.trim() || "";
-      if (front && back) parsed.push({ front, back, hint });
-    }
-  });
-
-  return parsed;
+if (!rawText || !rawText.trim()) return [];
+const lines = rawText.trim().split(/\r?\n/);
+const headerKeywords = [
+"front", "back", "hint", "english", "thai", "vocab",
+"vocabulary", "คำศัพท์", "ความหมาย", "คำแปล", "คำอ่าน"
+];
+const parsedCards = [];
+lines.forEach((line, idx) => {
+const trimmedLine = line.trim();
+if (!trimmedLine) return;
+let cols = [];
+// ลำดับที่ 1: Tab จาก Excel/Sheets
+if (trimmedLine.includes('\t')) {
+cols = trimmedLine.split('\t');
+}
+// ลำดับที่ 2: เครื่องหมายเท่ากับ (=)
+else if (trimmedLine.includes('=')) {
+cols = trimmedLine.split('=');
+}
+// ลำดับที่ 3: เครื่องหมายขีดคั่นกลาง ( - )
+else if (trimmedLine.includes(' - ')) {
+cols = trimmedLine.split(' - ');
+}
+// ลำดับที่ 4: เคาะเว้นวรรคตั้งแต่ 2 เคาะขึ้นไป
+else if (/\s{2,}/.test(trimmedLine)) {
+cols = trimmedLine.split(/\s{2,}/);
+}
+// ลำดับที่ 5: คอมมา (,)
+else if (trimmedLine.includes(',')) {
+cols = trimmedLine.split(',');
+}
+cols = cols.map(c => c.trim()).filter(c => c.length > 0);
+// ตรวจจับและตัดแถวหัวตาราง
+if (idx === 0 && cols.length >= 2) {
+const firstCol = cols[0].toLowerCase();
+const secondCol = cols[1].toLowerCase();
+const isHeader = headerKeywords.some(k => firstCol.includes(k) || secondCol.includes(k));
+if (isHeader) return;
+}
+if (cols.length >= 2) {
+parsedCards.push({
+front: cols[0],
+back: cols[1],
+hint: cols[2] || ""
+});
+}
+});
+return parsedCards;
 }
 
 // ==========================================
@@ -264,10 +376,19 @@ async function fetchSheetData(sheetUrl) {
 // ==========================================
 // 7. CARD PLAY ENGINE & SPACED REPETITION
 // ==========================================
-function clearCardDisplay(message = "ไม่มีชุดคำศัพท์") {
+function clearCardDisplay(message = "ไม่มีชุดคำศัพท์", showRestartBtn = false) {
   currentCards = [];
   currentIndex = 0;
-  document.getElementById('front-text').textContent = message;
+  
+  if (showRestartBtn) {
+    document.getElementById('front-text').innerHTML = `
+      <div>${message}</div>
+      <button type="button" class="btn-restart-deck" onclick="restartCurrentDeck()">🔄 เริ่มท่องใหม่ตั้งแต่ต้น</button>
+    `;
+  } else {
+    document.getElementById('front-text').textContent = message;
+  }
+  
   document.getElementById('back-text').textContent = "-";
   document.getElementById('hint-text').textContent = "";
   document.getElementById('card-counter').textContent = "0 / 0";
@@ -275,7 +396,11 @@ function clearCardDisplay(message = "ไม่มีชุดคำศัพท�
   const flashcard = document.getElementById('flashcard');
   if (flashcard) flashcard.classList.remove('is-flipped');
 }
-
+function restartCurrentDeck() {
+if (activeDeckId) {
+selectDeck(activeDeckId);
+}
+}
 function renderCard() {
   if (currentCards.length === 0) {
     clearCardDisplay();
@@ -332,14 +457,14 @@ function reverseCurrentDeck() {
 }
 
 function handleSpacedPass() {
-  if (currentCards.length === 0) return;
-  currentCards.splice(currentIndex, 1);
-  if (currentCards.length === 0) {
-    clearCardDisplay("🎉 ยอดเยี่ยม! ทบทวนครบทุกคำแล้ว");
-  } else {
-    if (currentIndex >= currentCards.length) currentIndex = 0;
-    renderCard();
-  }
+if (currentCards.length === 0) return;
+currentCards.splice(currentIndex, 1);
+if (currentCards.length === 0) {
+clearCardDisplay("🎉 ยอดเยี่ยม! ทบทวนครบทุกคำแล้ว", true);
+} else {
+if (currentIndex >= currentCards.length) currentIndex = 0;
+renderCard();
+}
 }
 
 function handleSpacedRepeat() {
@@ -496,8 +621,7 @@ function syncDomOrderToState() {
     const fId = fNode.dataset.folderId;
     const folder = appState.folders.find(f => f.id === fId);
     if (!folder) return;
-
-    const deckNodes = fNode.querySelectorAll('.swipe-item-container[data-deck-id]');
+const deckNodes = fNode.querySelectorAll('.swipe-item-container[data-deck-id]');
     const newDecks = [];
     deckNodes.forEach(dNode => {
       const dId = dNode.dataset.deckId;
@@ -601,7 +725,7 @@ function renderDecks() {
     container.appendChild(wrapper);
   });
 
-const addBtn = document.createElement('button');
+  const addBtn = document.createElement('button');
   addBtn.className = 'btn-small';
   addBtn.id = 'btn-add-deck-inline';
   addBtn.textContent = '➕ ชุดคำ';
@@ -809,7 +933,8 @@ function renderFoldersView() {
             else selectedDecksIds.add(d.id);
             renderFoldersView();
           } else if (!isCustomSorting) {
-            switchAndPlayDeck(folder.id, d.id);
+                  // เปลี่ยนจากเดิม switchAndPlayDeck เป็นเปิดหน้าต่าง Preview
+        openDeckPreview(folder.id, d.id);
           }
         }
       });
@@ -825,6 +950,56 @@ function renderFoldersView() {
   if (isCustomSorting) {
     bindTouchDragAndDrop(container);
   }
+}
+let pendingPlayFolderId = "";
+let pendingPlayDeckId = "";
+
+function openDeckPreview(folderId, deckId) {
+  const folder = appState.folders.find(f => f.id === folderId);
+  const deck = folder?.decks?.find(d => d.id === deckId);
+  if (!deck) return;
+
+  pendingPlayFolderId = folderId;
+  pendingPlayDeckId = deckId;
+
+  document.getElementById('preview-modal-title').textContent = `📖 รายการคำศัพท์: ${deck.name}`;
+  const container = document.getElementById('preview-cards-table-container');
+
+  if (deck.cards && deck.cards.length > 0) {
+    let tableHtml = `
+      <table class="preview-table">
+        <thead>
+          <tr>
+            <th>ด้านหน้า (คำศัพท์)</th>
+            <th>ด้านหลัง (คำแปล)</th>
+            <th>คำใบ้</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    deck.cards.forEach(c => {
+      tableHtml += `
+        <tr>
+          <td>${renderCardContent(c.front)}</td>
+          <td>${renderCardContent(c.back)}</td>
+          <td>${escapeHTML(c.hint || '-')}</td>
+        </tr>
+      `;
+    });
+    tableHtml += `</tbody></table>`;
+    container.innerHTML = tableHtml;
+  } else if (deck.sheetUrl) {
+    container.innerHTML = `
+      <div style="padding:16px; text-align:center;">
+        <p style="font-size:13px; color:var(--text-dark); margin-bottom:8px;">ชุดคำนี้เชื่อมต่อกับ Google Sheets</p>
+        <small style="font-size:11px; color:var(--text-muted); word-break:break-all;">${escapeHTML(deck.sheetUrl)}</small>
+      </div>
+    `;
+  } else {
+    container.innerHTML = '<p style="padding:16px; text-align:center; color:var(--text-muted);">ไม่พบข้อมูลคำศัพท์</p>';
+  }
+
+  openModal('preview-deck-modal');
 }
 
 function copySheetUrl(url) {
@@ -979,9 +1154,9 @@ function renderAll() {
   renderDecks();
   renderSavedSheets();
   renderFoldersView();
-}
-
-// ==========================================
+   }
+     
+  // ==========================================
 // 13. DOM INITIALIZATION
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -1047,7 +1222,45 @@ document.addEventListener('DOMContentLoaded', () => {
       document.body.classList.toggle('exit-fullscreen-landscape');
     });
   }
-
+// ปุ่มโหมดการ์ดเดี่ยว (Focus Mode)
+const btnFocusMode = document.getElementById('btn-focus-mode');
+if (btnFocusMode) {
+btnFocusMode.addEventListener('click', () => {
+document.body.classList.toggle('focus-single-card');
+});
+}
+// แตะปุ่มกากบาทเพื่อออกจาก Focus Mode
+if (btnExitLandscape) {
+btnExitLandscape.addEventListener('click', () => {
+document.body.classList.remove('focus-single-card');
+});
+}
+// แตะแท็บเล่นการ์ดซ้ำเพื่อรีเซ็ตสำรับ
+const navPlay = document.getElementById('nav-play');
+if (navPlay) {
+navPlay.addEventListener('click', () => {
+if (document.getElementById('view-play').classList.contains('active')) {
+restartCurrentDeck();
+}
+});
+}
+// ปุ่มเริ่มเล่นการ์ดจาก Modal พรีวิว
+const btnStartPlay = document.getElementById('btn-start-play-deck');
+if (btnStartPlay) {
+btnStartPlay.addEventListener('click', () => {
+closeModal('preview-deck-modal');
+if (pendingPlayFolderId && pendingPlayDeckId) {
+switchAndPlayDeck(pendingPlayFolderId, pendingPlayDeckId);
+}
+});
+}
+// ผูกปุ่มออกจากระบบ
+const btnLogout = document.getElementById('btn-logout');
+if (btnLogout) {
+btnLogout.addEventListener('click', logoutUser);
+}
+// อัปเดตสถานะปุ่มล็อกอิน/ออกจากระบบเริ่มต้น
+updateAuthUI();
   // ลบหลายรายการในคลังชีต
   document.getElementById('btn-delete-selected-sheets').addEventListener('click', () => {
     if (selectedSheetsIds.size === 0) return;
@@ -1138,7 +1351,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const btnDeleteFolder = document.getElementById('btn-delete-folder');
   if (btnDeleteFolder) {
     btnDeleteFolder.addEventListener('click', () => deleteFolderById(activeFolderId));
-    }
+  }
 
   // บันทึกฝากลิงก์ชีต
   document.getElementById('btn-open-add-sheet').addEventListener('click', () => openModal('add-sheet-modal'));
