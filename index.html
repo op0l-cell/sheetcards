@@ -28,12 +28,12 @@
       </div>
 
       <header>
-        <div class="brand-title">📑 SheetCards</div>
-        <div class="header-tools">
-          <button type="button" class="btn-tool" id="btn-shuffle-deck" title="สุ่มลำดับคำศัพท์">🔀</button>
-          <button type="button" class="btn-tool" id="btn-reverse-deck" title="สลับหน้า-หลัง (Reverse)">🔄</button>
-          <div class="counter-badge" id="card-counter">0 / 0</div>
-        </div>
+            <div class="header-tools">
+      <button type="button" class="btn-tool" id="btn-focus-mode" title="โหมดการ์ดเดี่ยว">⛶</button>
+      <button type="button" class="btn-tool" id="btn-shuffle-deck" title="สุ่มลำดับคำศัพท์">🔀</button>
+      <button type="button" class="btn-tool" id="btn-reverse-deck" title="สลับหน้า-หลัง (Reverse)">🔄</button>
+      <div class="counter-badge" id="card-counter">0 / 0</div>
+      </div>
       </header>
     
       <!-- โซนเลือกโฟลเดอร์ -->
@@ -212,7 +212,7 @@
   <!-- Modal หน้าโปรไฟล์, การตั้งค่า, สำรองข้อมูล (Export/Import) -->
   <div class="modal-overlay" id="profile-modal">
     <div class="modal-box">
-      <h3>👤 โปรไฟล์ & การตั้งค่า</h3>
+      <h3> โปรไฟล์ & การตั้งค่า</h3>
       
       <div class="profile-card">
         <div class="avatar-display" id="profile-avatar">🌸</div>
@@ -252,7 +252,7 @@
       <div class="setting-group">
         <label class="setting-label">💾 สำรองข้อมูลออฟไลน์:</label>
         <div class="backup-actions">
-          <button type="button" class="btn-backup" id="btn-export-backup">📤 ส่งออกสำรอง (JSON)</button>
+          <button type="button" class="btn-backup" id="btn-export-backup">📤 ส่งออกสำรอง</button>
           <label class="btn-backup" for="import-backup-file">📥 นำเข้าสำรอง
             <input type="file" id="import-backup-file" accept=".json" style="display:none;" />
           </label>
@@ -264,10 +264,12 @@
         <div>🌸 ชุดคำศัพท์: <strong id="stat-decks">0</strong></div>
       </div>
 
-      <div class="auth-buttons">
-        <button type="button" class="btn-auth google" id="btn-login-google">🔗 ล็อกอิน Google</button>
-        <button type="button" class="btn-auth local" id="btn-create-local-user">👤 สร้างตัวตนใหม่ในเว็บ</button>
-      </div>
+        <div class="auth-buttons">
+    <button type="button" class="btn-auth google" id="btn-login-google">🔗 ล็อกอิน Google</button>
+    <button type="button" class="btn-auth local" id="btn-create-local-user">👤 สร้างตัวตนใหม่ในเว็บ</button>
+    <button type="button" class="btn-auth logout" id="btn-logout" style="display:none; background:#EF4444; color:white;">🚪 ออกจากระบบ Google</button>
+  </div>
+
 
       <div class="modal-buttons" style="margin-top: 14px;">
         <button type="button" class="btn-cancel" onclick="closeModal('profile-modal')">ปิดหน้าต่าง</button>
@@ -324,7 +326,19 @@
       </div>
     </div>
   </div>
-
+<!-- Modal พรีวิวคำศัพท์ในชุดคำ -->
+<div class="modal-overlay" id="preview-deck-modal">
+  <div class="modal-box" style="max-width: 440px;">
+    <h3 id="preview-modal-title">📖 รายการคำศัพท์ในชุด</h3>
+    <div id="preview-cards-table-container" style="max-height: 320px; overflow-y: auto; margin-bottom: 14px; border: 1px solid var(--secondary); border-radius: 12px;">
+<!-- ตารางคำศัพท์จะถูกเรนเดอร์ที่นี่ -->
+    </div>
+  <div class="modal-buttons" style="justify-content: space-between;">
+    <button type="button" class="btn-cancel" onclick="closeModal('preview-deck-modal')">ปิด</button>
+    <button type="button" class="btn-save" id="btn-start-play-deck">▶ เริ่มเล่นการ์ดชุดนี้</button>
+    </div>
+  </div>
+</div>
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
