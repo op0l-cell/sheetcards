@@ -916,6 +916,21 @@ body.exit-fullscreen-landscape .btn-exit-landscape {
 /* Profile & Sort Helpers */
 .profile-card { text-align: center; margin-bottom: 14px; }
 .avatar-display { font-size: 40px; }
+/* ควบคุมขนาดรูปโปรไฟล์ไม่ให้ล้น */
+.avatar-display img {
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+#bottom-avatar-icon img {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
 .profile-sub { font-size: 12px; color: var(--text-muted); }
 .setting-group { margin-bottom: 14px; }
 .setting-label { font-size: 12px; font-weight: 600; margin-bottom: 6px; display: block; }
