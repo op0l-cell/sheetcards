@@ -1,3 +1,4 @@
+localStorage.clear(); 
 // ==========================================
 // 1. FIREBASE BACKEND SETUP (SAFE MODE)
 // ==========================================
@@ -26,7 +27,42 @@ try {
 } catch (e) {
   console.warn("Firebase Safe-Mode Active:", e);
 }
-
+// ==========================================
+// [วางตรงนี้] ตรวจจับสถานะการล็อกอินอัตโนมัติ
+// ==========================================
+if (typeof firebase !== "undefined" && firebase.auth) {
+  firebase.auth().onAuthStateChanged(async (user) => {
+    if (user) {
+      // เมื่อพบว่าล็อกอินอยู่
+      currentUser = user;
+      appState.user = {
+        name: user.displayName || "Google User",
+        email: user.email,
+        avatar: user.photoURL || "👤",
+        type: "google"
+      };
+      
+      // ดึงข้อมูลจาก Cloud
+      if (typeof loadUserDataFromCloud === "function") {
+        await loadUserDataFromCloud(user.uid);
+      }
+    } else {
+      // เมื่อไม่ได้ล็อกอิน หรือกดออกจากระบบ
+      currentUser = null;
+      appState.user = {
+        name: "ผู้ใช้งานทั่วไป",
+        type: "local",
+        avatar: "👤",
+        theme: "default"
+      };
+    }
+    
+    // อัปเดตหน้าจอและปุ่ม
+    if (typeof updateAuthUI === "function") updateAuthUI();
+    if (typeof updateProfileUI === "function") updateProfileUI();
+    if (typeof renderAll === "function") renderAll();
+  });
+}
 // ==========================================
 // 2. STATE & DEFAULT DATA
 // ==========================================
@@ -104,26 +140,30 @@ function saveState() {
   localStorage.setItem('sheetcards_state', JSON.stringify(appState));
   syncDataToCloud();
 }
+function updateProfileUI() {
+  const loginBtn = document.getElementById("btn-google-login");
+  const logoutBtn = document.getElementById("btn-logout");
+  const userNameEl = document.getElementById("profile-name");
 
-function updateAuthUI() {
-  const btnGoogle = document.getElementById('btn-login-google');
-  const btnLocal = document.getElementById('btn-create-local-user');
-  const btnLogout = document.getElementById('btn-logout');
-  const profileStatus = document.getElementById('profile-status');
-  const profileName = document.getElementById('profile-name');
+  if (!loginBtn || !logoutBtn) return;
 
-  if (appState.user.type === 'google') {
-    if (btnGoogle) btnGoogle.style.display = 'none';
-    if (btnLocal) btnLocal.style.display = 'none';
-    if (btnLogout) btnLogout.style.display = 'block';
-    if (profileStatus) profileStatus.textContent = '🔗 บัญชี Google (เชื่อมต่อออนไลน์)';
+  // ตรวจสอบว่ากำลังล็อกอิน Google อยู่หรือไม่
+  if (appState.user && appState.user.type === "google") {
+    // ล็อกอินอยู่ -> ซ่อนปุ่ม Login, แสดงปุ่ม Logout และแสดงชื่อ Google
+    loginBtn.style.display = "none";
+    logoutBtn.style.display = "block";
+    if (userNameEl) userNameEl.textContent = appState.user.name || "Google User";
   } else {
-    if (btnGoogle) btnGoogle.style.display = 'block';
-    if (btnLocal) btnLocal.style.display = 'block';
-    if (btnLogout) btnLogout.style.display = 'none';
-    if (profileStatus) profileStatus.textContent = '👤 บัญชีในเครื่อง (Local)';
+    // โหมดทั่วไป / หลุดล็อกอิน -> แสดงปุ่ม Login, ซ่อนปุ่ม Logout
+    loginBtn.style.display = "block";
+    logoutBtn.style.display = "none";
+    if (userNameEl) userNameEl.textContent = "ผู้ใช้งานทั่วไป";
   }
-  if (profileName) profileName.textContent = appState.user.name;
+}
+
+// ผูกฟังก์ชัน updateAuthUI ให้เรียกทำงานร่วมกัน
+function updateAuthUI() {
+  updateProfileUI();
 }
 
 async function loginWithGoogle() {
@@ -163,33 +203,52 @@ async function loginWithGoogle() {
   }
 }
 
-function logoutUser() {
-  if (!confirm("คุณต้องการออกจากระบบ Google ใช่หรือไม่?\n(ระบบจะสลับกลับไปยังบัญชีในเครื่อง)")) return;
+async function logoutUser() {
+  if (!confirm("คุณต้องการออกจากระบบ Google ใช่หรือไม่?")) return;
 
-  if (currentUser) {
-    localStorage.setItem(`sheetcards_google_state_${currentUser.uid}`, JSON.stringify(appState));
+  try {
+    // 1. สั่งตัดการเชื่อมต่อกับ Firebase
+    if (typeof auth !== "undefined" && auth) {
+      await auth.signOut();
+    } else if (typeof firebase !== "undefined" && firebase.auth) {
+      await firebase.auth().signOut();
+    }
+    currentUser = null;
+
+    // 2. รีเซ็ตสถานะกลับเป็นโหมดเริ่มต้น (Guest/Local ค่าว่าง)
+    if (typeof DEFAULT_STATE !== "undefined") {
+      appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
+    } else {
+      appState = {
+        user: { name: "ผู้ใช้งานทั่วไป", type: "local", avatar: "👤", theme: "default" },
+        folders: [],
+        savedSheets: []
+      };
+    }
+    appState.user.type = "local";
+
+    // 3. ล้างข้อมูลและแคชที่ค้างในเครื่องออก
+    localStorage.removeItem("sheetcards_local_state");
+    localStorage.removeItem("sheetcards_data");
+    localStorage.removeItem("sheetcards_user");
+
+    // 4. บันทึกสถานะว่างลงเครื่อง และสั่งรีเฟรชหน้าจอทั้งหมด
+    if (typeof saveState === "function") saveState();
+    if (typeof saveLocalState === "function") saveLocalState();
+
+    activeFolderId = appState.folders[0]?.id || "";
+    activeDeckId = appState.folders[0]?.decks[0]?.id || "";
+
+    if (typeof renderAll === "function") renderAll();
+    if (typeof renderAllViews === "function") renderAllViews();
+    if (typeof updateAuthUI === "function") updateAuthUI();
+    if (typeof updateProfileUI === "function") updateProfileUI();
+    if (typeof closeModal === "function") closeModal("profile-modal");
+
+    alert("🚪 ออกจากระบบเรียบร้อยแล้ว");
+  } catch (error) {
+    console.error("Logout Error:", error);
   }
-
-  if (auth) auth.signOut();
-  currentUser = null;
-
-  const localState = localStorage.getItem('sheetcards_local_state');
-  if (localState) {
-    appState = JSON.parse(localState);
-  } else {
-    appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-    appState.user.type = 'local';
-  }
-
-  saveState();
-  activeFolderId = appState.folders[0]?.id || "";
-  activeDeckId = appState.folders[0]?.decks[0]?.id || "";
-  renderAll();
-  if (activeDeckId) selectDeck(activeDeckId);
-  updateAuthUI();
-
-  closeModal('profile-modal');
-  alert("🚪 ออกจากระบบเรียบร้อยแล้ว");
 }
 
 async function syncDataToCloud() {
@@ -621,7 +680,8 @@ function syncDomOrderToState() {
     const fId = fNode.dataset.folderId;
     const folder = appState.folders.find(f => f.id === fId);
     if (!folder) return;
-const deckNodes = fNode.querySelectorAll('.swipe-item-container[data-deck-id]');
+
+    const deckNodes = fNode.querySelectorAll('.swipe-item-container[data-deck-id]');
     const newDecks = [];
     deckNodes.forEach(dNode => {
       const dId = dNode.dataset.deckId;
@@ -1154,9 +1214,9 @@ function renderAll() {
   renderDecks();
   renderSavedSheets();
   renderFoldersView();
-   }
-     
-  // ==========================================
+}
+
+// ==========================================
 // 13. DOM INITIALIZATION
 // ==========================================
 document.addEventListener('DOMContentLoaded', () => {
