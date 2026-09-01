@@ -140,30 +140,63 @@ function saveState() {
   localStorage.setItem('sheetcards_state', JSON.stringify(appState));
   syncDataToCloud();
 }
-function updateProfileUI() {
-  const loginBtn = document.getElementById("btn-google-login");
-  const logoutBtn = document.getElementById("btn-logout");
+function updateAuthUI() {
+  // ดึง Element ตาม ID จริงใน index.html
+  const loginBtn = document.getElementById("btn-login-google");       // ตรงกับ id="btn-login-google"
+  const createProfileBtn = document.getElementById("btn-create-local-user"); // ตรงกับ id="btn-create-local-user"
+  const logoutBtn = document.getElementById("btn-logout");           // ตรงกับ id="btn-logout"
+  
   const userNameEl = document.getElementById("profile-name");
-
-  if (!loginBtn || !logoutBtn) return;
+  const userAvatarEl = document.getElementById("profile-avatar");
+  const userStatusEl = document.getElementById("profile-status");
+  const bottomAvatarEl = document.getElementById("bottom-avatar-icon");
 
   // ตรวจสอบว่ากำลังล็อกอิน Google อยู่หรือไม่
-  if (appState.user && appState.user.type === "google") {
-    // ล็อกอินอยู่ -> ซ่อนปุ่ม Login, แสดงปุ่ม Logout และแสดงชื่อ Google
-    loginBtn.style.display = "none";
-    logoutBtn.style.display = "block";
-    if (userNameEl) userNameEl.textContent = appState.user.name || "Google User";
+  const isGoogle = (currentUser !== null) || (appState.user && appState.user.type === "google");
+
+  if (isGoogle) {
+    // ------------------------------------
+    // สถานะ: ล็อกอินบัญชี Google แล้ว
+    // ------------------------------------
+    if (loginBtn) loginBtn.style.display = "none";             // ซ่อนปุ่มล็อกอิน
+    if (createProfileBtn) createProfileBtn.style.display = "none"; // ซ่อนปุ่มสร้างตัวตน
+    if (logoutBtn) logoutBtn.style.display = "block";           // แสดงปุ่มออกจากระบบ
+
+    // อัปเดตข้อมูลผู้ใช้
+    const displayName = (currentUser && currentUser.displayName) || appState.user.name || "Google User";
+    if (userNameEl) userNameEl.textContent = displayName;
+    if (userStatusEl) userStatusEl.textContent = "บัญชี Google (Cloud Sync ☁️)";
+
+    // จัดการรูปโปรไฟล์
+    const photo = (currentUser && currentUser.photoURL) || appState.user.avatar;
+    if (photo && photo.startsWith("http")) {
+      if (userAvatarEl) userAvatarEl.innerHTML = `<img src="${photo}" style="width:100%;height:100%;border-radius:50%;object-fit:cover;">`;
+      if (bottomAvatarEl) bottomAvatarEl.innerHTML = `<img src="${photo}" style="width:20px;height:20px;border-radius:50%;object-fit:cover;">`;
+    } else {
+      if (userAvatarEl) userAvatarEl.textContent = "🌸";
+      if (bottomAvatarEl) bottomAvatarEl.textContent = "🌸";
+    }
+
   } else {
-    // โหมดทั่วไป / หลุดล็อกอิน -> แสดงปุ่ม Login, ซ่อนปุ่ม Logout
-    loginBtn.style.display = "block";
-    logoutBtn.style.display = "none";
-    if (userNameEl) userNameEl.textContent = "ผู้ใช้งานทั่วไป";
+    // ------------------------------------
+    // สถานะ: บัญชีในเครื่อง (Local / Guest)
+    // ------------------------------------
+    if (loginBtn) loginBtn.style.display = "block";            // แสดงปุ่มล็อกอิน
+    if (createProfileBtn) createProfileBtn.style.display = "block"; // แสดงปุ่มสร้างตัวตน
+    if (logoutBtn) logoutBtn.style.display = "none";            // ซ่อนปุ่มออกจากระบบ
+
+    if (userNameEl) userNameEl.textContent = (appState.user && appState.user.name) || "ผู้ใช้งานทั่วไป";
+    if (userStatusEl) userStatusEl.textContent = "บัญชีในเครื่อง (Local)";
+    
+    const localAvatar = (appState.user && appState.user.avatar) || "🌸";
+    if (userAvatarEl) userAvatarEl.textContent = localAvatar;
+    if (bottomAvatarEl) bottomAvatarEl.textContent = localAvatar;
   }
 }
 
-// ผูกฟังก์ชัน updateAuthUI ให้เรียกทำงานร่วมกัน
-function updateAuthUI() {
-  updateProfileUI();
+// ผูก Alias ให้ updateProfileUI เรียก updateAuthUI ด้วย
+function updateProfileUI() {
+  updateAuthUI();
 }
 
 async function loginWithGoogle() {
@@ -182,18 +215,30 @@ async function loginWithGoogle() {
       appState = JSON.parse(savedGoogleState);
     } else {
       appState = JSON.parse(JSON.stringify(DEFAULT_STATE));
-      appState.user.name = currentUser.displayName || "Google User";
-      appState.user.type = "google";
     }
 
-    await loadUserDataFromCloud(currentUser.uid);
+    // กำหนดค่าบัญชี Google ให้ชัดเจนเสมอ
+    appState.user = appState.user || {};
+    appState.user.name = currentUser.displayName || "Google User";
+    appState.user.email = currentUser.email || "";
+    appState.user.avatar = currentUser.photoURL || "🌸";
+    appState.user.type = "google";
+
+    if (typeof loadUserDataFromCloud === "function") {
+      await loadUserDataFromCloud(currentUser.uid);
+    }
+    
+    // บังคับสถานะประเภทเป็น google อีกครั้งหลังโหลด cloud
+    appState.user.type = "google";
+
     saveState();
     
     activeFolderId = appState.folders[0]?.id || "";
     activeDeckId = appState.folders[0]?.decks[0]?.id || "";
     renderAll();
-    if (activeDeckId) selectDeck(activeDeckId);
-    updateAuthUI();
+    if (activeDeckId && typeof selectDeck === "function") selectDeck(activeDeckId);
+    
+    updateAuthUI(); // อัปเดตปุ่มและสถานะหน้าโปรไฟล์
 
     closeModal('profile-modal');
     alert(`✅ ยินดีต้อนรับคุณ ${appState.user.name}!`);
