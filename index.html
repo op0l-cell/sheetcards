@@ -84,11 +84,11 @@
     </section>
 
     <!-- ======================================================== -->
-    <!-- แท็บที่ 2: หน้าฝากลิงก์ชีต (Saved Sheets View)            -->
+    <!-- แท็บที่ 2: คลังเนื้อหา (Content Hub / Vault & Converter)    -->
     <!-- ======================================================== -->
     <section class="tab-view" id="view-sheets">
       <header>
-        <div class="brand-title">🔗 คลังลิงก์ชีต</div>
+        <div class="brand-title">📦 คลังเนื้อหา</div>
         <div class="header-actions" id="sheets-header-actions">
           <button type="button" class="btn-icon-action" id="btn-open-add-sheet" title="เพิ่มลิงก์ชีต">➕</button>
         </div>
@@ -98,10 +98,52 @@
           <button type="button" class="btn-action-pill" id="btn-cancel-sheets-selection">เสร็จสิ้น</button>
         </div>
       </header>
-      <p class="tab-subtext">กดค้างเพื่อเลือกหลายรายการ หรือเลื่อนขวาเพื่อคัดลอก/ลบ</p>
-      
-      <div class="swipe-list" id="sheets-list-container"></div>
+
+      <!-- แถบสลับโหมดย่อย: แปลงข้อความ VS รายการลิงก์ชีต -->
+      <div class="mode-switch-container" style="margin: 10px 14px 14px 14px;">
+        <button type="button" class="mode-tab active" id="tab-vault-converter" onclick="switchVaultSubTab('converter')">⚡ เครื่องมือแปลงข้อความ</button>
+        <button type="button" class="mode-tab" id="tab-vault-sheets" onclick="switchVaultSubTab('sheets')">🔗 ลิงก์ชีตที่บันทึกไว้</button>
+      </div>
+
+      <!-- โหมด 1: ตัวแปลงข้อความ / ข้อสอบ / ตาราง Markdown -->
+      <div id="vault-panel-converter" class="create-mode-panel active" style="padding: 0 14px;">
+        <p class="tab-subtext" style="margin: 0 0 8px 0;">วางตารางสรุป, ข้อสอบ หรือข้อความจาก PDF ระบบจะคัดแยกเป็น หน้า / หลัง / คำใบ้ ให้อัตโนมัติ</p>
+        
+        <textarea 
+          id="vault-raw-input" 
+          rows="6" 
+          placeholder="วางตารางสรุป, ข้อสอบ หรือข้อความที่นี่...&#10;เช่น ตาราง Markdown | ลำดับ | คำถาม | คำตอบ | หรือข้อความคั่นด้วย Tab/ขีด"
+          style="width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px; border: 1px solid var(--border, #ccc); font-family: inherit; font-size: 0.9em;"
+        ></textarea>
+
+        <div style="display: flex; gap: 8px; margin: 10px 0;">
+          <button type="button" class="btn-save" id="btn-vault-parse" style="flex: 2; padding: 10px;">⚡ จัดระเบียบข้อความ</button>
+          <button type="button" class="btn-cancel" id="btn-vault-clear" style="flex: 1; padding: 10px;">ล้างช่อง</button>
+        </div>
+
+        <!-- กล่องแสดงผลพรีวิวหลังแปลง -->
+        <div id="vault-preview-container" style="display: none; margin-top: 14px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <strong style="font-size: 0.9em;">ผลการแปลง (<span id="vault-parsed-count">0</span> รายการ)</strong>
+            <div style="display: flex; gap: 6px;">
+              <button type="button" class="btn-small" id="btn-vault-copy" title="คัดลอกข้อความ">📋 คัดลอก</button>
+              <button type="button" class="btn-small" id="btn-vault-send-to-deck" style="background: var(--primary, #F472B6); color: white;">🎴 ส่งไปสร้างการ์ด</button>
+            </div>
+          </div>
+          
+          <div id="vault-parsed-table-box" style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 10px; background: white;">
+            <!-- ตารางตัวอย่างจะแสดงที่นี่ -->
+          </div>
+        </div>
+      </div>
+
+      <!-- โหมด 2: รายการชีตเดิมที่บันทึกไว้ -->
+      <div id="vault-panel-sheets" class="create-mode-panel" style="display: none;">
+        <p class="tab-subtext">กดค้างเพื่อเลือกหลายรายการ หรือเลื่อนขวาเพื่อคัดลอก/ลบ</p>
+        <div class="swipe-list" id="sheets-list-container"></div>
+      </div>
     </section>
+
 
     <!-- ======================================================== -->
     <!-- แท็บที่ 3: หน้ารวมโฟลเดอร์ (Folders View)                  -->
@@ -133,9 +175,9 @@
       <span>เล่นการ์ด</span>
     </button>
     
-    <button type="button" class="nav-item" data-target="view-sheets" id="nav-sheets">
-      <span class="nav-icon">🔗</span>
-      <span>ฝากลิงก์ชีต</span>
+        <button type="button" class="nav-item" data-target="view-sheets" id="nav-sheets">
+      <span class="nav-icon">📦</span>
+      <span>คลังเนื้อหา</span>
     </button>
 
     <button type="button" class="nav-item" data-target="view-folders" id="nav-folders">
