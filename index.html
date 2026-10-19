@@ -10,7 +10,13 @@
   <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&family=Noto+Sans+JP:wght@400;500;700&family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
   
   <link rel="stylesheet" href="style.css" />
+  
+    <!-- PDF.js สำหรับอ่านไฟล์เอกสาร PDF -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js สำหรับสกัดข้อความจากรูปภาพ (OCR) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 </head>
+  
 <body data-theme="vanilla-pink">
 
   <div class="app-container" id="app-container">
@@ -83,7 +89,7 @@
       </div>
     </section>
 
-    <!-- ======================================================== -->
+        <!-- ======================================================== -->
     <!-- แท็บที่ 2: คลังเนื้อหา (Content Hub / Vault & Converter)    -->
     <!-- ======================================================== -->
     <section class="tab-view" id="view-sheets">
@@ -99,19 +105,36 @@
         </div>
       </header>
 
-      <!-- แถบสลับโหมดย่อย: แปลงข้อความ VS รายการลิงก์ชีต -->
+      <!-- แถบสลับโหมดย่อย -->
       <div class="mode-switch-container" style="margin: 10px 14px 14px 14px;">
-        <button type="button" class="mode-tab active" id="tab-vault-converter" onclick="switchVaultSubTab('converter')">⚡ เครื่องมือแปลงข้อความ</button>
-        <button type="button" class="mode-tab" id="tab-vault-sheets" onclick="switchVaultSubTab('sheets')">🔗 ลิงก์ชีตที่บันทึกไว้</button>
+        <button type="button" class="mode-tab active" id="tab-vault-converter" onclick="switchVaultSubTab('converter')">⚡ เครื่องมือแปลงข้อความ/ไฟล์</button>
+        <button type="button" class="mode-tab" id="tab-vault-sheets" onclick="switchVaultSubTab('sheets')">📂 คลังที่บันทึกไว้</button>
       </div>
 
-      <!-- โหมด 1: ตัวแปลงข้อความ / ข้อสอบ / ตาราง Markdown -->
+      <!-- โหมด 1: ตัวแปลงข้อความ / PDF / รูปภาพ -->
       <div id="vault-panel-converter" class="create-mode-panel active" style="padding: 0 14px;">
-        <p class="tab-subtext" style="margin: 0 0 8px 0;">วางตารางสรุป, ข้อสอบ หรือข้อความจาก PDF ระบบจะคัดแยกเป็น หน้า / หลัง / คำใบ้ ให้อัตโนมัติ</p>
+        <p class="tab-subtext" style="margin: 0 0 8px 0;">วางข้อความ ตาราง Markdown หรือเลือกไฟล์ PDF / รูปภาพ เพื่อแยกคำศัพท์ให้อัตโนมัติ</p>
         
+        <!-- โซนปุ่มอัปโหลดไฟล์ด่วน -->
+        <div style="display: flex; gap: 8px; margin-bottom: 8px;">
+          <label class="btn-tool" style="flex: 1; text-align: center; cursor: pointer; padding: 7px 4px; font-size: 0.85em; background: var(--bg-card, #fff); border: 1px dashed var(--secondary, #F472B6); border-radius: 8px;">
+            📄 อัปโหลด PDF
+            <input type="file" id="vault-file-pdf" accept="application/pdf" style="display:none;" />
+          </label>
+          <label class="btn-tool" style="flex: 1; text-align: center; cursor: pointer; padding: 7px 4px; font-size: 0.85em; background: var(--bg-card, #fff); border: 1px dashed var(--secondary, #F472B6); border-radius: 8px;">
+            🖼️ สแกนรูป (OCR)
+            <input type="file" id="vault-file-img" accept="image/*" style="display:none;" />
+          </label>
+        </div>
+
+        <!-- ตัวแสดงสถานะโหลดเวลาแกะไฟล์ PDF / รูปภาพ -->
+        <div id="vault-file-status" style="display: none; font-size: 0.82em; color: var(--secondary, #F472B6); margin-bottom: 6px;">
+          ⏳ กำลังอ่านไฟล์ กรุณารอสักครู่...
+        </div>
+
         <textarea 
           id="vault-raw-input" 
-          rows="6" 
+          rows="5" 
           placeholder="วางตารางสรุป, ข้อสอบ หรือข้อความที่นี่...&#10;เช่น ตาราง Markdown | ลำดับ | คำถาม | คำตอบ | หรือข้อความคั่นด้วย Tab/ขีด"
           style="width: 100%; box-sizing: border-box; border-radius: 12px; padding: 10px; border: 1px solid var(--border, #ccc); font-family: inherit; font-size: 0.9em;"
         ></textarea>
@@ -121,29 +144,28 @@
           <button type="button" class="btn-cancel" id="btn-vault-clear" style="flex: 1; padding: 10px;">ล้างช่อง</button>
         </div>
 
-        <!-- กล่องแสดงผลพรีวิวหลังแปลง -->
+        <!-- ส่วนแสดงผลพรีวิวหลังแปลง พร้อมปุ่มบันทึกลงคลัง -->
         <div id="vault-preview-container" style="display: none; margin-top: 14px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; flex-wrap: wrap; gap: 6px;">
             <strong style="font-size: 0.9em;">ผลการแปลง (<span id="vault-parsed-count">0</span> รายการ)</strong>
             <div style="display: flex; gap: 6px;">
               <button type="button" class="btn-small" id="btn-vault-copy" title="คัดลอกข้อความ">📋 คัดลอก</button>
-              <button type="button" class="btn-small" id="btn-vault-send-to-deck" style="background: var(--primary, #F472B6); color: white;">🎴 ส่งไปสร้างการ์ด</button>
+              <button type="button" class="btn-small" id="btn-vault-save-to-vault" style="background: var(--primary, #10B981); color: white;">💾 บันทึกลงคลัง</button>
             </div>
           </div>
           
           <div id="vault-parsed-table-box" style="max-height: 240px; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 10px; background: white;">
-            <!-- ตารางตัวอย่างจะแสดงที่นี่ -->
+            <!-- ตารางพรีวิวจะแสดงที่นี่ -->
           </div>
         </div>
       </div>
 
-      <!-- โหมด 2: รายการชีตเดิมที่บันทึกไว้ -->
+      <!-- โหมด 2: รายการคลังที่บันทึกไว้ (รวมทั้งชีตและเนื้อหาที่แปลงแล้ว) -->
       <div id="vault-panel-sheets" class="create-mode-panel" style="display: none;">
-        <p class="tab-subtext">กดค้างเพื่อเลือกหลายรายการ หรือเลื่อนขวาเพื่อคัดลอก/ลบ</p>
+        <p class="tab-subtext">กดที่รายการเพื่อดูตารางคำศัพท์และสร้างการ์ด หรือเลื่อนขวาเพื่อลบ</p>
         <div class="swipe-list" id="sheets-list-container"></div>
       </div>
     </section>
-
 
     <!-- ======================================================== -->
     <!-- แท็บที่ 3: หน้ารวมโฟลเดอร์ (Folders View)                  -->
@@ -382,6 +404,27 @@
     </div>
   </div>
 </div>
+
+    <!-- Modal สำหรับเปิดดูตารางเนื้อหาในคลัง และมีปุ่มกดนำไปสร้างเป็นแฟลชการ์ด -->
+  <div class="modal-overlay" id="vault-detail-modal">
+    <div class="modal-box" style="max-width: 500px;">
+      <h3 id="vault-detail-title">📑 รายละเอียดเนื้อหา</h3>
+      <p id="vault-detail-meta" style="font-size: 0.85em; opacity: 0.7; margin-top: -6px; margin-bottom: 10px;"></p>
+      
+      <div id="vault-detail-table-box" style="max-height: 300px; overflow-y: auto; border: 1px solid var(--border, #ddd); border-radius: 10px; margin-bottom: 14px; background: white;">
+        <!-- ตาราง Front / Back / Hint จะเรนเดอร์ที่นี่ -->
+      </div>
+
+      <div class="modal-buttons" style="display: flex; justify-content: space-between; gap: 8px;">
+        <button type="button" class="btn-cancel" onclick="closeModal('vault-detail-modal')">ปิด</button>
+        <div style="display: flex; gap: 8px;">
+          <button type="button" class="btn-small" id="btn-vault-detail-copy">📋 คัดลอก</button>
+          <button type="button" class="btn-save" id="btn-vault-detail-create-deck">🎴 สร้างเป็นการ์ดชุดนี้</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Firebase SDK -->
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.1/firebase-auth-compat.js"></script>
