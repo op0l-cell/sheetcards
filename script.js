@@ -375,55 +375,192 @@ function switchCreateMode(mode) {
   }
 }
 
+// ==========================================
+// [แทนที่ฟังก์ชันเดิม] ตัวแยกข้อความอัจฉริยะ (รองรับ Markdown Table, Tab, -, =)
+// ==========================================
 function parsePastedText(rawText) {
-if (!rawText || !rawText.trim()) return [];
-const lines = rawText.trim().split(/\r?\n/);
-const headerKeywords = [
-"front", "back", "hint", "english", "thai", "vocab",
-"vocabulary", "คำศัพท์", "ความหมาย", "คำแปล", "คำอ่าน"
-];
-const parsedCards = [];
-lines.forEach((line, idx) => {
-const trimmedLine = line.trim();
-if (!trimmedLine) return;
-let cols = [];
-// ลำดับที่ 1: Tab จาก Excel/Sheets
-if (trimmedLine.includes('\t')) {
-cols = trimmedLine.split('\t');
+  if (!rawText) return [];
+  const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  const resultCards = [];
+
+  for (let line of lines) {
+    // 1. ข้ามแถวเส้นประหัวตาราง Markdown เช่น |---|---|---|
+    if (/^[|\-\s:]+$/.test(line)) continue;
+
+    let parts = [];
+
+    // 2. ถ้าเป็นรูปแบบ Markdown Table ที่มีเครื่องหมาย |
+    if (line.includes('|')) {
+      const cleanLine = line.replace(/^\|/, '').replace(/\|$/, '');
+      parts = cleanLine.split('|').map(p => p.trim());
+
+      // ข้ามบรรทัดหัวข้อตาราง (Header)
+      if (parts[0] === 'ลำดับ' || parts[1] === 'คำถาม') continue;
+
+      // ถ้าตารางมี 3 คอลัมน์ขึ้นไป (ลำดับ, คำถาม, คำตอบ)
+      if (parts.length >= 3) {
+        resultCards.push({
+          front: parts[1],
+          back: parts[2],
+          hint: parts[0] ? `ข้อ ${parts[0]}` : ""
+        });
+        continue;
+      } else if (parts.length === 2) {
+        resultCards.push({
+          front: parts[0],
+          back: parts[1],
+          hint: ""
+        });
+        continue;
+      }
+    }
+
+    // 3. แยกกรณีข้อความทั่วไป (Tab, '=', '-', เว้นวรรค 2 เคาะ, จุลภาค)
+    if (line.includes('\t')) {
+      parts = line.split('\t');
+    } else if (line.includes('=')) {
+      parts = line.split('=');
+    } else if (line.includes(' - ')) {
+      parts = line.split(' - ');
+    } else if (line.includes('  ')) {
+      parts = line.split(/\s{2,}/);
+    } else if (line.includes(',')) {
+      parts = line.split(',');
+    }
+
+    parts = parts.map(p => p.trim()).filter(p => p.length > 0);
+
+    if (parts.length >= 2) {
+      resultCards.push({
+        front: parts[0],
+        back: parts[1],
+        hint: parts[2] || ""
+      });
+    }
+  }
+
+  return resultCards;
 }
-// ลำดับที่ 2: เครื่องหมายเท่ากับ (=)
-else if (trimmedLine.includes('=')) {
-cols = trimmedLine.split('=');
+
+// ==========================================
+// [เพิ่มใหม่ล่างสุดของไฟล์] ระบบควบคุม คลังเนื้อหา & แปลงข้อความ
+// ==========================================
+let vaultParsedCards = [];
+
+// ฟังก์ชันสลับแท็บย่อยในคลังเนื้อหา (เครื่องมือแปลง VS ลิงก์ชีต)
+function switchVaultSubTab(tabName) {
+  const tabConverter = document.getElementById("tab-vault-converter");
+  const tabSheets = document.getElementById("tab-vault-sheets");
+  const panelConverter = document.getElementById("vault-panel-converter");
+  const panelSheets = document.getElementById("vault-panel-sheets");
+
+  if (tabName === "converter") {
+    tabConverter?.classList.add("active");
+    tabSheets?.classList.remove("active");
+    if (panelConverter) panelConverter.style.display = "block";
+    if (panelSheets) panelSheets.style.display = "none";
+  } else {
+    tabSheets?.classList.add("active");
+    tabConverter?.classList.remove("active");
+    if (panelConverter) panelConverter.style.display = "none";
+    if (panelSheets) panelSheets.style.display = "block";
+  }
 }
-// ลำดับที่ 3: เครื่องหมายขีดคั่นกลาง ( - )
-else if (trimmedLine.includes(' - ')) {
-cols = trimmedLine.split(' - ');
+
+// เรนเดอร์ตัวอย่างตารางผลลัพธ์
+function renderVaultPreview(cards) {
+  const container = document.getElementById("vault-preview-container");
+  const countEl = document.getElementById("vault-parsed-count");
+  const tableBox = document.getElementById("vault-parsed-table-box");
+
+  if (!container || !countEl || !tableBox) return;
+
+  countEl.textContent = cards.length;
+  
+  let html = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+      <thead>
+        <tr style="background: #f3f4f6; text-align: left; position: sticky; top: 0;">
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">#</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หน้า (Front)</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หลัง (Back)</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">คำใบ้ (Hint)</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  cards.forEach((c, i) => {
+    html += `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 6px 8px; color: #888;">${i + 1}</td>
+        <td style="padding: 6px 8px;">${c.front}</td>
+        <td style="padding: 6px 8px; color: #0284c7;">${c.back}</td>
+        <td style="padding: 6px 8px; color: #888;">${c.hint || '-'}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  tableBox.innerHTML = html;
+  container.style.display = "block";
 }
-// ลำดับที่ 4: เคาะเว้นวรรคตั้งแต่ 2 เคาะขึ้นไป
-else if (/\s{2,}/.test(trimmedLine)) {
-cols = trimmedLine.split(/\s{2,}/);
+
+// ผูก Event Listener ปุ่มต่างๆ ในคลังเนื้อหา
+function initVaultEvents() {
+  const btnParse = document.getElementById("btn-vault-parse");
+  const btnClear = document.getElementById("btn-vault-clear");
+  const btnCopy = document.getElementById("btn-vault-copy");
+  const btnSendToDeck = document.getElementById("btn-vault-send-to-deck");
+  const rawInput = document.getElementById("vault-raw-input");
+
+  btnParse?.addEventListener("click", () => {
+    const text = rawInput?.value || "";
+    if (!text.trim()) {
+      alert("กรุณาวางข้อความหรือตารางก่อนครับ");
+      return;
+    }
+    vaultParsedCards = parsePastedText(text);
+    if (vaultParsedCards.length === 0) {
+      alert("ไม่พบรูปแบบข้อความที่สามารถแปลงได้");
+      return;
+    }
+    renderVaultPreview(vaultParsedCards);
+  });
+
+  btnClear?.addEventListener("click", () => {
+    if (rawInput) rawInput.value = "";
+    const container = document.getElementById("vault-preview-container");
+    if (container) container.style.display = "none";
+    vaultParsedCards = [];
+  });
+
+  btnCopy?.addEventListener("click", () => {
+    if (vaultParsedCards.length === 0) return;
+    const tsvText = vaultParsedCards.map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join("\n");
+    navigator.clipboard.writeText(tsvText).then(() => {
+      alert(`📋 คัดลอกข้อมูล ${vaultParsedCards.length} รายการแล้ว`);
+    });
+  });
+
+  btnSendToDeck?.addEventListener("click", () => {
+    if (vaultParsedCards.length === 0) return;
+    const tsvText = vaultParsedCards.map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join("\n");
+
+    const modal = document.getElementById("create-modal");
+    if (modal) modal.style.display = "flex";
+
+    if (typeof switchCreateMode === "function") switchCreateMode("paste");
+    const pasteBox = document.getElementById("modal-paste-raw");
+    if (pasteBox) pasteBox.value = tsvText;
+  });
 }
-// ลำดับที่ 5: คอมมา (,)
-else if (trimmedLine.includes(',')) {
-cols = trimmedLine.split(',');
-}
-cols = cols.map(c => c.trim()).filter(c => c.length > 0);
-// ตรวจจับและตัดแถวหัวตาราง
-if (idx === 0 && cols.length >= 2) {
-const firstCol = cols[0].toLowerCase();
-const secondCol = cols[1].toLowerCase();
-const isHeader = headerKeywords.some(k => firstCol.includes(k) || secondCol.includes(k));
-if (isHeader) return;
-}
-if (cols.length >= 2) {
-parsedCards.push({
-front: cols[0],
-back: cols[1],
-hint: cols[2] || ""
-});
-}
-});
-return parsedCards;
+
+// เรียกให้ระบบทำงานทันทีเมื่อไฟล์โหลด
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initVaultEvents);
+} else {
+  initVaultEvents();
 }
 
 // ==========================================
