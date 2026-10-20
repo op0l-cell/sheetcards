@@ -374,30 +374,22 @@ function switchCreateMode(mode) {
     document.getElementById('mode-sheet-content').classList.add('active');
   }
 }
-
-// ==========================================
-// [แทนที่ฟังก์ชันเดิม] ตัวแยกข้อความอัจฉริยะ (รองรับ Markdown Table, Tab, -, =)
-// ==========================================
 function parsePastedText(rawText) {
   if (!rawText) return [];
   const lines = rawText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   const resultCards = [];
 
   for (let line of lines) {
-    // 1. ข้ามแถวเส้นประหัวตาราง Markdown เช่น |---|---|---|
-    if (/^[|\-\s:]+$/.test(line)) continue;
+    if (/^[|\-\s:]+$/.test(line)) continue; // ข้ามแถวเส้นประหัวตาราง |---|---|
 
     let parts = [];
 
-    // 2. ถ้าเป็นรูปแบบ Markdown Table ที่มีเครื่องหมาย |
     if (line.includes('|')) {
       const cleanLine = line.replace(/^\|/, '').replace(/\|$/, '');
       parts = cleanLine.split('|').map(p => p.trim());
 
-      // ข้ามบรรทัดหัวข้อตาราง (Header)
-      if (parts[0] === 'ลำดับ' || parts[1] === 'คำถาม') continue;
+      if (parts[0] === 'ลำดับ' || parts[1] === 'คำถาม') continue; // ข้าม Header
 
-      // ถ้าตารางมี 3 คอลัมน์ขึ้นไป (ลำดับ, คำถาม, คำตอบ)
       if (parts.length >= 3) {
         resultCards.push({
           front: parts[1],
@@ -415,7 +407,6 @@ function parsePastedText(rawText) {
       }
     }
 
-    // 3. แยกกรณีข้อความทั่วไป (Tab, '=', '-', เว้นวรรค 2 เคาะ, จุลภาค)
     if (line.includes('\t')) {
       parts = line.split('\t');
     } else if (line.includes('=')) {
