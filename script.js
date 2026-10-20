@@ -1013,7 +1013,7 @@ function selectDeck(deckId) {
 }
 
 // ==========================================
-// 10. SAVED SHEETS & FOLDERS VIEW
+// 10. SAVED SHEETS & FOLDERS VIEW (เวอร์ชันอัปเกรด)
 // ==========================================
 function renderSavedSheets() {
   const container = document.getElementById('sheets-list-container');
@@ -1025,16 +1025,16 @@ function renderSavedSheets() {
   container.innerHTML = '';
 
   if (selectedSheetsIds.size > 0) {
-    headerActions.style.display = 'none';
-    selectActions.style.display = 'flex';
-    countLabel.textContent = `เลือก ${selectedSheetsIds.size}`;
+    if (headerActions) headerActions.style.display = 'none';
+    if (selectActions) selectActions.style.display = 'flex';
+    if (countLabel) countLabel.textContent = `เลือก ${selectedSheetsIds.size}`;
   } else {
-    headerActions.style.display = 'flex';
-    selectActions.style.display = 'none';
+    if (headerActions) headerActions.style.display = 'flex';
+    if (selectActions) selectActions.style.display = 'none';
   }
 
-  if (appState.savedSheets.length === 0) {
-    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:20px;">ยังไม่มีลิงก์ชีตที่บันทึกไว้</p>';
+  if (!appState.savedSheets || appState.savedSheets.length === 0) {
+    container.innerHTML = '<p style="text-align:center; color:var(--text-muted); font-size:13px; margin-top:20px;">ยังไม่มีลิงก์ชีตหรือเนื้อหาที่บันทึกไว้</p>';
     return;
   }
 
@@ -1043,18 +1043,40 @@ function renderSavedSheets() {
     const isSelected = selectedSheetsIds.has(item.id);
     itemContainer.className = `swipe-item-container ${isSelected ? 'selected' : ''}`;
 
+    // ตรวจสอบว่าเป็นเนื้อหาที่แปลงแล้ว หรือเป็นลิงก์ Google Sheets
+    const isContent = item.type === "content";
+    const badgeType = isContent 
+      ? `<span style="background: #E0E7FF; color: #4338CA; padding: 2px 6px; border-radius: 6px; font-size: 0.75em; margin-right: 4px;">📑 ${item.cards?.length || 0} การ์ด</span>`
+      : `<span style="background: #D1FAE5; color: #065F46; padding: 2px 6px; border-radius: 6px; font-size: 0.75em; margin-right: 4px;">🔗 ชีต</span>`;
+
+    const subText = isContent 
+      ? `บันทึกเมื่อ: ${new Date(item.createdAt || Date.now()).toLocaleDateString("th-TH")}` 
+      : (item.url || '-');
+
     itemContainer.innerHTML = `
       <div class="swipe-item-wrapper">
         <div class="swipe-content" id="sheet-item-${item.id}">
-          <div class="swipe-title">${escapeHTML(item.name || 'ชีตไม่มีชื่อ')}</div>
-          <div class="swipe-sub">${escapeHTML(item.url)}</div>
+          <div class="swipe-title">${badgeType} ${escapeHTML(item.name || 'ไม่มีชื่อ')}</div>
+          <div class="swipe-sub" style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHTML(subText)}</div>
         </div>
         <div class="swipe-actions">
-          <button type="button" class="swipe-btn copy" onclick="copySheetUrl('${escapeHTML(item.url)}')">📋 ก็อป</button>
+          <button type="button" class="swipe-btn copy" id="btn-copy-sheet-${item.id}">📋 ดู/ก็อป</button>
           <button type="button" class="swipe-btn delete" onclick="deleteSavedSheet('${item.id}')">🗑️ ลบ</button>
         </div>
       </div>
     `;
+
+    // ผูกปุ่มคัดลอกในแถบเลื่อน Swipe
+    const copyBtn = itemContainer.querySelector(`#btn-copy-sheet-${item.id}`);
+    copyBtn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (isContent) {
+        const tsv = (item.cards || []).map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join('\n');
+        navigator.clipboard.writeText(tsv).then(() => alert(`📋 คัดลอกข้อมูล "${item.name}" แล้ว`));
+      } else {
+        copySheetUrl(item.url);
+      }
+    });
 
     const contentEl = itemContainer.querySelector(`#sheet-item-${item.id}`);
     bindItemGestures(itemContainer, contentEl, {
@@ -1064,10 +1086,16 @@ function renderSavedSheets() {
         renderSavedSheets();
       },
       onTap: () => {
+        // ถ้าอยู่ในโหมดเลือกหลายรายการ ให้ติ๊กเลือก/ยกเลิก
         if (selectedSheetsIds.size > 0) {
           if (selectedSheetsIds.has(item.id)) selectedSheetsIds.delete(item.id);
           else selectedSheetsIds.add(item.id);
           renderSavedSheets();
+        } else {
+          // ถ้าแตะปกติ ให้เปิดหน้าต่างดูตารางคำศัพท์และกดสร้างการ์ดได้ทันที
+          if (typeof openVaultDetailModal === 'function') {
+            openVaultDetailModal(item);
+          }
         }
       }
     });
@@ -1075,6 +1103,7 @@ function renderSavedSheets() {
     container.appendChild(itemContainer);
   });
 }
+
 
 function renderFoldersView() {
   const container = document.getElementById('folders-view-container');
@@ -1737,6 +1766,320 @@ updateAuthUI();
       alert(`✅ บันทึกตัวตน "${username}" สำเร็จ`);
     }
   });
+
+  // ========================================================
+// 14.ระบบคลังเนื้อหา: สกัด PDF, OCR รูปภาพ, บันทึก และเปิดดูตาราง
+// ========================================================
+
+let vaultCurrentParsedCards = []; // เก็บการ์ดที่เพิ่งจัดระเบียบเสร็จ
+let activeVaultItem = null;        // เก็บไอเทมในคลังที่กำลังเปิด Modal ดูอยู่
+
+// 1. สลับแท็บย่อยในคลังเนื้อหา
+function switchVaultSubTab(tabName) {
+  const tabConverter = document.getElementById("tab-vault-converter");
+  const tabSheets = document.getElementById("tab-vault-sheets");
+  const panelConverter = document.getElementById("vault-panel-converter");
+  const panelSheets = document.getElementById("vault-panel-sheets");
+
+  if (tabName === "converter") {
+    tabConverter?.classList.add("active");
+    tabSheets?.classList.remove("active");
+    if (panelConverter) panelConverter.style.display = "block";
+    if (panelSheets) panelSheets.style.display = "none";
+  } else {
+    tabSheets?.classList.add("active");
+    tabConverter?.classList.remove("active");
+    if (panelConverter) panelConverter.style.display = "none";
+    if (panelSheets) panelSheets.style.display = "block";
+    renderSavedSheets(); // สั่งเรนเดอร์รายการคลังล่าสุด
+  }
+}
+
+// 2. เรนเดอร์ตัวอย่างตารางผลลัพธ์หลังจัดระเบียบ
+function renderVaultPreview(cards) {
+  const container = document.getElementById("vault-preview-container");
+  const countEl = document.getElementById("vault-parsed-count");
+  const tableBox = document.getElementById("vault-parsed-table-box");
+
+  if (!container || !countEl || !tableBox) return;
+
+  countEl.textContent = cards.length;
+  
+  let html = `
+    <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+      <thead>
+        <tr style="background: #f3f4f6; text-align: left; position: sticky; top: 0;">
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">#</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หน้า (Front)</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หลัง (Back)</th>
+          <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">คำใบ้ (Hint)</th>
+        </tr>
+      </thead>
+      <tbody>
+  `;
+
+  cards.forEach((c, i) => {
+    html += `
+      <tr style="border-bottom: 1px solid #eee;">
+        <td style="padding: 6px 8px; color: #888;">${i + 1}</td>
+        <td style="padding: 6px 8px;">${escapeHTML(c.front)}</td>
+        <td style="padding: 6px 8px; color: #0284c7;">${escapeHTML(c.back)}</td>
+        <td style="padding: 6px 8px; color: #888;">${escapeHTML(c.hint || '-')}</td>
+      </tr>
+    `;
+  });
+
+  html += `</tbody></table>`;
+  tableBox.innerHTML = html;
+  container.style.display = "block";
+}
+
+// 3. ระบบอ่านไฟล์ PDF ผ่าน PDF.js
+async function extractTextFromPDF(file) {
+  if (typeof pdfjsLib === "undefined") {
+    alert("⚠️ ระบบอ่าน PDF ยังไม่พร้อมใช้งาน");
+    return "";
+  }
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+  let fullText = "";
+
+  for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
+    const page = await pdf.getPage(pageNum);
+    const content = await page.getTextContent();
+    const pageText = content.items.map(item => item.str).join(" ");
+    fullText += pageText + "\n";
+  }
+
+  return fullText;
+}
+
+// 4. ระบบอ่านข้อความจากรูปภาพผ่าน Tesseract.js (OCR)
+async function extractTextFromImage(file) {
+  if (typeof Tesseract === "undefined") {
+    alert("⚠️ ระบบสแกนรูปภาพยังไม่พร้อมใช้งาน");
+    return "";
+  }
+  // รองรับทั้งภาษาไทยและอังกฤษ
+  const { data: { text } } = await Tesseract.recognize(file, 'tha+eng');
+  return text;
+}
+
+// 5. เปิด Modal แสดงรายละเอียดตารางคำศัพท์จากคลัง
+function openVaultDetailModal(item) {
+  activeVaultItem = item;
+  const modal = document.getElementById("vault-detail-modal");
+  const titleEl = document.getElementById("vault-detail-title");
+  const metaEl = document.getElementById("vault-detail-meta");
+  const tableBox = document.getElementById("vault-detail-table-box");
+
+  if (!modal || !tableBox) return;
+
+  titleEl.textContent = `📑 ${item.name || "ไม่มีชื่อ"}`;
+  
+  if (item.type === "content") {
+    metaEl.textContent = `ประเภท: เนื้อหาจัดระเบียบแล้ว (${item.cards?.length || 0} การ์ด)`;
+    
+    let html = `
+      <table style="width: 100%; border-collapse: collapse; font-size: 0.85em;">
+        <thead>
+          <tr style="background: #f3f4f6; text-align: left; position: sticky; top: 0;">
+            <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">#</th>
+            <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หน้า (Front)</th>
+            <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">หลัง (Back)</th>
+            <th style="padding: 6px 8px; border-bottom: 1px solid #ddd;">คำใบ้ (Hint)</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+
+    (item.cards || []).forEach((c, i) => {
+      html += `
+        <tr style="border-bottom: 1px solid #eee;">
+          <td style="padding: 6px 8px; color: #888;">${i + 1}</td>
+          <td style="padding: 6px 8px;">${escapeHTML(c.front)}</td>
+          <td style="padding: 6px 8px; color: #0284c7;">${escapeHTML(c.back)}</td>
+          <td style="padding: 6px 8px; color: #888;">${escapeHTML(c.hint || '-')}</td>
+        </tr>
+      `;
+    });
+
+    html += `</tbody></table>`;
+    tableBox.innerHTML = html;
+  } else {
+    // กรณีเป็นชีต Google Sheets ภายนอก
+    metaEl.textContent = `ประเภท: ลิงก์ Google Sheets`;
+    tableBox.innerHTML = `
+      <div style="padding: 20px; font-size: 0.9em; word-break: break-all;">
+        <strong>URL:</strong> <a href="${item.url}" target="_blank" style="color: #0284c7;">${item.url}</a>
+        <p style="color: #888; margin-top: 8px;">* ข้อมูลคำศัพท์จะถูกดึงอัตโนมัติเมื่อกดสร้างการ์ด</p>
+      </div>`;
+  }
+
+  modal.style.display = "flex";
+}
+
+// 6. ผูก Event Listeners การทำงานของคลังทั้งหมด
+function initVaultExtendedFeatures() {
+  const btnParse = document.getElementById("btn-vault-parse");
+  const btnClear = document.getElementById("btn-vault-clear");
+  const btnCopy = document.getElementById("btn-vault-copy");
+  const btnSaveToVault = document.getElementById("btn-vault-save-to-vault");
+  const rawInput = document.getElementById("vault-raw-input");
+  const fileStatus = document.getElementById("vault-file-status");
+
+  const pdfInput = document.getElementById("vault-file-pdf");
+  const imgInput = document.getElementById("vault-file-img");
+
+  // อ่านไฟล์ PDF
+  pdfInput?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (fileStatus) {
+      fileStatus.textContent = "⏳ กำลังสกัดข้อความจาก PDF...";
+      fileStatus.style.display = "block";
+    }
+
+    try {
+      const extractedText = await extractTextFromPDF(file);
+      if (rawInput) rawInput.value = extractedText;
+      if (fileStatus) fileStatus.textContent = "✅ สกัดข้อความจาก PDF สำเร็จ! กด 'จัดระเบียบข้อความ' ได้เลย";
+    } catch (err) {
+      console.error(err);
+      alert("❌ อ่านไฟล์ PDF ขัดข้อง: " + err.message);
+      if (fileStatus) fileStatus.style.display = "none";
+    }
+  });
+
+  // สแกนภาพ (OCR)
+  imgInput?.addEventListener("change", async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (fileStatus) {
+      fileStatus.textContent = "⏳ กำลังสแกนตัวหนังสือจากภาพ (OCR)...";
+      fileStatus.style.display = "block";
+    }
+
+    try {
+      const extractedText = await extractTextFromImage(file);
+      if (rawInput) rawInput.value = extractedText;
+      if (fileStatus) fileStatus.textContent = "✅ สแกนรูปภาพสำเร็จ! ตรวจทานแล้วกด 'จัดระเบียบข้อความ' ได้เลย";
+    } catch (err) {
+      console.error(err);
+      alert("❌ การสแกนรูปภาพขัดข้อง: " + err.message);
+      if (fileStatus) fileStatus.style.display = "none";
+    }
+  });
+
+  // ปุ่มกดจัดระเบียบข้อความ
+  btnParse?.addEventListener("click", () => {
+    const text = rawInput?.value || "";
+    if (!text.trim()) {
+      alert("กรุณาวางข้อความหรืออัปโหลดไฟล์ก่อนครับ");
+      return;
+    }
+    vaultCurrentParsedCards = parsePastedText(text);
+    if (vaultCurrentParsedCards.length === 0) {
+      alert("ไม่พบรูปแบบข้อความที่สามารถแยกคำศัพท์ได้");
+      return;
+    }
+    renderVaultPreview(vaultCurrentParsedCards);
+  });
+
+  // ล้างช่องกรอก
+  btnClear?.addEventListener("click", () => {
+    if (rawInput) rawInput.value = "";
+    if (fileStatus) fileStatus.style.display = "none";
+    document.getElementById("vault-preview-container").style.display = "none";
+    vaultCurrentParsedCards = [];
+  });
+
+  // คัดลอกผลลัพธ์เป็นมาตรฐาน
+  btnCopy?.addEventListener("click", () => {
+    if (vaultCurrentParsedCards.length === 0) return;
+    const tsv = vaultCurrentParsedCards.map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join("\n");
+    navigator.clipboard.writeText(tsv).then(() => {
+      alert(`📋 คัดลอกข้อมูล ${vaultCurrentParsedCards.length} รายการแล้ว`);
+    });
+  });
+
+  // ปุ่ม "💾 บันทึกลงคลัง"
+  btnSaveToVault?.addEventListener("click", () => {
+    if (vaultCurrentParsedCards.length === 0) return;
+    
+    const contentName = prompt("ตั้งชื่อสำหรับบันทึกเนื้อหาชุดนี้ลงในคลัง:", "ชุดเนื้อหา " + new Date().toLocaleDateString("th-TH"));
+    if (!contentName) return;
+
+    const newVaultItem = {
+      id: "vault_" + Date.now(),
+      type: "content",
+      name: contentName.trim(),
+      cards: [...vaultCurrentParsedCards],
+      createdAt: Date.now()
+    };
+
+    appState.savedSheets = appState.savedSheets || [];
+    appState.savedSheets.unshift(newVaultItem);
+    saveState();
+
+    alert(`💾 บันทึก "${newVaultItem.name}" ลงในคลังเนื้อหาเรียบร้อยแล้ว!`);
+    switchVaultSubTab("sheets"); // สลับไปหน้าคลังทันที
+  });
+
+  // ปุ่ม "🎴 สร้างเป็นการ์ดชุดนี้" จากหน้าต่าง Modal ดูรายละเอียด
+  document.getElementById("btn-vault-detail-create-deck")?.addEventListener("click", () => {
+    if (!activeVaultItem) return;
+
+    closeModal("vault-detail-modal");
+
+    // เปิด Modal สร้างชุดคำศัพท์หลัก
+    const createModal = document.getElementById("create-modal");
+    if (createModal) createModal.style.display = "flex";
+
+    // กำหนดชื่อชุดคำอัตโนมัติ
+    const deckNameInput = document.getElementById("modal-deck-name");
+    if (deckNameInput) deckNameInput.value = activeVaultItem.name || "";
+
+    if (activeVaultItem.type === "content") {
+      // สลับเป็นโหมดวางข้อความ แล้วหยอด TSV ใส่ช่อง
+      if (typeof switchCreateMode === "function") switchCreateMode("paste");
+      const pasteBox = document.getElementById("modal-paste-raw");
+      const tsvText = (activeVaultItem.cards || []).map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join("\n");
+      if (pasteBox) pasteBox.value = tsvText;
+    } else {
+      // สลับเป็นโหมดลิงก์ชีต แล้วหยอด URL
+      if (typeof switchCreateMode === "function") switchCreateMode("sheet");
+      const sheetInput = document.getElementById("modal-sheet-url");
+      if (sheetInput) sheetInput.value = activeVaultItem.url || "";
+    }
+  });
+
+  // ปุ่ม "📋 คัดลอก" จากหน้าต่าง Modal ดูรายละเอียด
+  document.getElementById("btn-vault-detail-copy")?.addEventListener("click", () => {
+    if (!activeVaultItem) return;
+    if (activeVaultItem.type === "content") {
+      const tsvText = (activeVaultItem.cards || []).map(c => `${c.front}\t${c.back}\t${c.hint || ''}`).join("\n");
+      navigator.clipboard.writeText(tsvText).then(() => {
+        alert("📋 คัดลอกข้อมูลทั้งหมดเรียบร้อยแล้ว");
+      });
+    } else {
+      navigator.clipboard.writeText(activeVaultItem.url).then(() => {
+        alert("📋 คัดลอกลิงก์ชีตเรียบร้อยแล้ว");
+      });
+    }
+  });
+}
+
+// เริ่มต้นระบบ
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initVaultExtendedFeatures);
+} else {
+  initVaultExtendedFeatures();
+}
 
   // ผูกปุ่มล็อกอิน Google
   document.getElementById('btn-login-google').addEventListener('click', loginWithGoogle);
