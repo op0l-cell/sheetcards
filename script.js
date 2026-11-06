@@ -2174,20 +2174,26 @@ function initVaultExtendedFeatures() {
     }
   });
 }
-// ผูกปุ่ม "💾 บันทึกการตั้งค่า" ในหน้าโปรไฟล์
+// ผูกปุ่ม "💾 บันทึกการตั้งค่า" ในหน้าโปรไฟล์ (บันทึกทั้งธีมและชื่อ)
 document.getElementById('btn-save-profile-settings')?.addEventListener('click', () => {
-  // 1. ดึงธีมปัจจุบันบน body ไปเซฟลง localStorage ทันที
+  // 1. ดึงธีมปัจจุบันบน body
   const activeTheme = document.body.getAttribute('data-theme') || 'vanilla-pink';
   localStorage.setItem('sheetcards_theme', activeTheme);
 
-  // 2. ซิงก์ลง appState ของระบบ
+  // 2. ดึงชื่อผู้ใช้ปัจจุบัน (จาก element แสดงชื่อ หรือ input)
+  const nameEl = document.getElementById('profile-name');
+  const currentName = nameEl ? nameEl.textContent.trim() : 'ผู้ใช้งานทั่วไป';
+  localStorage.setItem('sheetcards_username', currentName);
+
+  // 3. ซิงก์ลง appState และบันทึกผ่าน saveState()
   if (typeof appState !== 'undefined') {
     appState.user = appState.user || {};
     appState.user.theme = activeTheme;
+    appState.user.name = currentName;
     if (typeof saveState === 'function') saveState();
   }
 
-  alert(`💾 บันทึกการตั้งค่าเรียบร้อยแล้ว! (ธีม: ${activeTheme})`);
+  alert(`💾 บันทึกการตั้งค่าเรียบร้อย!\nธีม: ${activeTheme}\nชื่อ: ${currentName}`);
   closeModal('profile-modal');
 });
   
