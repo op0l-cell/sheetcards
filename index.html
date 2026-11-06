@@ -282,6 +282,8 @@
       <div class="profile-card">
         <div class="avatar-display" id="profile-avatar">🌸</div>
         <strong id="profile-name">ผู้ใช้งานทั่วไป</strong>
+        <button type="button" id="btn-edit-username" title="เปลี่ยนชื่อผู้ใช้" style="background:none; border:none; cursor:pointer; font-size:0.9rem;">✏️</button>
+      </div>
         <p class="profile-sub" id="profile-status">บัญชีในเครื่อง (Local)</p>
       </div>
 
@@ -323,7 +325,13 @@
           </label>
         </div>
       </div>
-
+<div class="setting-group" style="margin-top: 10px;">
+  <label class="setting-label">💬 ข้อเสนอแนะ & แจ้งปัญหา:</label>
+  <!-- นำลิงก์ฟอร์มของคุณ เช่น https://tally.so/r/xxxxxx มาวางแทนที่ -->
+  <a href="https://tally.so/r/YOUR_FORM_ID" target="_blank" rel="noopener noreferrer" class="btn-backup" style="display:block; text-align:center; text-decoration:none; background:#F3F4F6; color:var(--text-main, #333); padding:8px; border-radius:8px; font-weight:500;">
+    📝 ส่ง Feedback ผ่าน Tally
+  </a>
+</div>
       <div class="stats-box">
         <div>📁 โฟลเดอร์: <strong id="stat-folders">0</strong></div>
         <div>🌸 ชุดคำศัพท์: <strong id="stat-decks">0</strong></div>
