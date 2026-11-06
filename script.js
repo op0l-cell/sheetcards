@@ -1,8 +1,9 @@
-// ดึงธีมเดิมมาใช้ทันทีตั้งแต่เสี้ยววินาทีแรกที่โหลดเว็บ
-const savedTheme = localStorage.getItem('sheetcards_theme');
-if (savedTheme) {
-  document.body.setAttribute('data-theme', savedTheme);
+// ดึงธีมเดิมมาใช้ทันทีตั้งแต่เปิดหน้าเว็บ
+const currentSavedTheme = localStorage.getItem('sheetcards_theme');
+if (currentSavedTheme) {
+  document.body.setAttribute('data-theme', currentSavedTheme);
 }
+
 
 localStorage.clear(); 
 // ==========================================
@@ -2178,7 +2179,23 @@ function initVaultExtendedFeatures() {
     }
   });
 }
+// ผูกปุ่ม "💾 บันทึกการตั้งค่า" ในหน้าโปรไฟล์
+document.getElementById('btn-save-profile-settings')?.addEventListener('click', () => {
+  // 1. ดึงธีมปัจจุบันบน body ไปเซฟลง localStorage ทันที
+  const activeTheme = document.body.getAttribute('data-theme') || 'vanilla-pink';
+  localStorage.setItem('sheetcards_theme', activeTheme);
 
+  // 2. ซิงก์ลง appState ของระบบ
+  if (typeof appState !== 'undefined') {
+    appState.user = appState.user || {};
+    appState.user.theme = activeTheme;
+    if (typeof saveState === 'function') saveState();
+  }
+
+  alert(`💾 บันทึกการตั้งค่าเรียบร้อยแล้ว! (ธีม: ${activeTheme})`);
+  closeModal('profile-modal');
+});
+  
 // เริ่มต้นระบบ
 if (document.readyState === "loading") {
   document.addEventListener("DOMContentLoaded", initVaultExtendedFeatures);
