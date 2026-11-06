@@ -1486,8 +1486,36 @@ function updateAuthUI() {
     if (loginBtn) loginBtn.style.display = "none";
     if (createProfileBtn) createProfileBtn.style.display = "none";
     if (logoutBtn) logoutBtn.style.display = "block";
-    if (userStatusEl) user
+    if (userStatusEl) userStatusEl.textContent = "บัญชี Google (Cloud Sync ☁️)";
+  } else {
+    if (loginBtn) loginBtn.style.display = "block";
+    if (createProfileBtn) createProfileBtn.style.display = "block";
+    if (logoutBtn) logoutBtn.style.display = "none";
+    if (userStatusEl) userStatusEl.textContent = "บัญชีในเครื่อง (Local)";
+  }
+}
+
+// 6. ผูกปุ่มดินสอแก้ไขชื่อผู้ใช้
+document.getElementById('btn-edit-username')?.addEventListener('click', () => {
+  const currentName = appState.user?.name || 'ผู้ใช้งานทั่วไป';
+  const newName = prompt('กรุณาระบุชื่อผู้ใช้ใหม่ของคุณ:', currentName);
+  
+  if (newName && newName.trim() !== '') {
+    appState.user = appState.user || {};
+    appState.user.name = newName.trim();
+    saveState();
     
+    const nameEl = document.getElementById('profile-name');
+    if (nameEl) nameEl.textContent = appState.user.name;
+    
+    alert('✅ อัปเดตชื่อเรียบร้อยแล้ว');
+  }
+});
+
+// 7. โหลดธีมที่เคยบันทึกไว้ทันทีเมื่อเปิดเว็บ
+if (typeof appState !== "undefined" && appState.user && appState.user.theme) {
+  document.body.setAttribute('data-theme', appState.user.theme);
+}
 
 // ==========================================
 // 13. DOM INITIALIZATION
