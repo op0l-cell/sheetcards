@@ -1,3 +1,9 @@
+// ดึงธีมเดิมมาใช้ทันทีตั้งแต่เสี้ยววินาทีแรกที่โหลดเว็บ
+const savedTheme = localStorage.getItem('sheetcards_theme');
+if (savedTheme) {
+  document.body.setAttribute('data-theme', savedTheme);
+}
+
 localStorage.clear(); 
 // ==========================================
 // 1. FIREBASE BACKEND SETUP (SAFE MODE)
