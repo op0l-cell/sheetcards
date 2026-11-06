@@ -1,8 +1,3 @@
-// ดึงธีมเดิมมาใช้ทันทีตั้งแต่เปิดหน้าเว็บ
-const currentSavedTheme = localStorage.getItem('sheetcards_theme');
-if (currentSavedTheme) {
-  document.body.setAttribute('data-theme', currentSavedTheme);
-}
 
 
 localStorage.clear(); 
