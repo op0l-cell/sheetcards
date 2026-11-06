@@ -1380,22 +1380,44 @@ function importBackupJSON(e) {
 // ==========================================
 // 12. GENERAL HELPERS & NAVIGATION
 // ==========================================
-function openModal(id) { const m = document.getElementById(id); if (m) m.classList.add('open'); }
-function closeModal(id) { const m = document.getElementById(id); if (m) m.classList.remove('open'); }
 
+function openModal(id) { 
+  const m = document.getElementById(id); 
+  if (m) m.classList.add('open'); 
+}
+
+function closeModal(id) { 
+  const m = document.getElementById(id); 
+  if (m) m.classList.remove('open'); 
+}
+
+// 1. ฟังก์ชันเปลี่ยนธีมและจำค่าถาวร
 function applyTheme(themeName) {
+  if (!themeName) return;
   document.body.setAttribute('data-theme', themeName);
+  appState.user = appState.user || {};
   appState.user.theme = themeName;
   saveState();
 }
 
+// 2. ฟังก์ชันเปลี่ยนอิโมจิและจำค่า (ล็อกไม่ให้รูป Google มาทับ)
 function updateAvatar(newAvatar) {
+  if (!newAvatar) return;
+  appState.user = appState.user || {};
   appState.user.avatar = newAvatar;
-  document.getElementById('profile-avatar').textContent = newAvatar;
-  document.getElementById('bottom-avatar-icon').textContent = newAvatar;
+  appState.user.useCustomAvatar = true; // บันทึกว่าผู้ใช้เจาะจงเลือกอิโมจิตัวเอง
+
+  // เคลียร์แท็ก <img> เดิมออก แล้วแสดงเป็นอิโมจิตัวหนังสือ
+  const profileAvatar = document.getElementById('profile-avatar');
+  const bottomAvatar = document.getElementById('bottom-avatar-icon');
+  
+  if (profileAvatar) profileAvatar.textContent = newAvatar;
+  if (bottomAvatar) bottomAvatar.textContent = newAvatar;
+  
   saveState();
 }
 
+// 3. ฟังก์ชันสลับแท็บเมนูด้านล่าง (ของเดิม)
 function switchTab(tabId) {
   document.querySelectorAll('.tab-view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.bottom-nav .nav-item').forEach(i => i.classList.remove('active'));
@@ -1406,17 +1428,66 @@ function switchTab(tabId) {
   const navBtn = document.querySelector(`.bottom-nav .nav-item[data-target="${tabId}"]`);
   if (navBtn) navBtn.classList.add('active');
 
-  if (tabId === 'view-sheets') renderSavedSheets();
-  if (tabId === 'view-folders') renderFoldersView();
+  if (tabId === 'view-sheets' && typeof renderSavedSheets === 'function') renderSavedSheets();
+  if (tabId === 'view-folders' && typeof renderFoldersView === 'function') renderFoldersView();
 }
 
+// 4. ฟังก์ชันเรนเดอร์ข้อมูลทั้งหมด (ของเดิม)
 function renderAll() {
-  renderFolderDropdowns();
-  renderTags();
-  renderDecks();
-  renderSavedSheets();
-  renderFoldersView();
+  if (typeof renderFolderDropdowns === 'function') renderFolderDropdowns();
+  if (typeof renderTags === 'function') renderTags();
+  if (typeof renderDecks === 'function') renderDecks();
+  if (typeof renderSavedSheets === 'function') renderSavedSheets();
+  if (typeof renderFoldersView === 'function') renderFoldersView();
 }
+
+// 5. ฟังก์ชันอัปเดตหน้าตาโปรไฟล์ (แก้บั๊กล็อกอินแล้วรูปทับ/ธีมหลุด)
+function updateAuthUI() {
+  const loginBtn = document.getElementById("btn-login-google");
+  const createProfileBtn = document.getElementById("btn-create-local-user");
+  const logoutBtn = document.getElementById("btn-logout");
+  
+  const userNameEl = document.getElementById("profile-name");
+  const userAvatarEl = document.getElementById("profile-avatar");
+  const userStatusEl = document.getElementById("profile-status");
+  const bottomAvatarEl = document.getElementById("bottom-avatar-icon");
+
+  const isGoogle = (typeof currentUser !== "undefined" && currentUser !== null) || (appState.user && appState.user.type === "google");
+
+  // ดึงธีมเดิมมาแสดงผลเสมอ
+  if (appState.user && appState.user.theme) {
+    document.body.setAttribute("data-theme", appState.user.theme);
+  }
+
+  // ดึงชื่อผู้ใช้
+  const currentName = (appState.user && appState.user.name) || (typeof currentUser !== "undefined" && currentUser && currentUser.displayName) || "ผู้ใช้งานทั่วไป";
+  if (userNameEl) userNameEl.textContent = currentName;
+
+  // จัดการรูปโปรไฟล์ / อิโมจิ
+  let displayAvatar = (appState.user && appState.user.avatar) || "🌸";
+  let isGooglePhoto = false;
+
+  // ใช้รูป Google เฉพาะตอนล็อกอิน และผู้ใช้ไม่ได้เลือกอิโมจิเอง
+  if (isGoogle && !appState.user?.useCustomAvatar && typeof currentUser !== "undefined" && currentUser?.photoURL) {
+    displayAvatar = currentUser.photoURL;
+    isGooglePhoto = true;
+  }
+
+  if (isGooglePhoto && displayAvatar.startsWith("http")) {
+    if (userAvatarEl) userAvatarEl.innerHTML = `<img src="${displayAvatar}" style="width:54px; height:54px; border-radius:50%; object-fit:cover;">`;
+    if (bottomAvatarEl) bottomAvatarEl.innerHTML = `<img src="${displayAvatar}" style="width:22px; height:22px; border-radius:50%; object-fit:cover;">`;
+  } else {
+    if (userAvatarEl) userAvatarEl.textContent = displayAvatar;
+    if (bottomAvatarEl) bottomAvatarEl.textContent = displayAvatar;
+  }
+
+  // สลับปุ่มสถานะล็อกอิน
+  if (isGoogle) {
+    if (loginBtn) loginBtn.style.display = "none";
+    if (createProfileBtn) createProfileBtn.style.display = "none";
+    if (logoutBtn) logoutBtn.style.display = "block";
+    if (userStatusEl) user
+    
 
 // ==========================================
 // 13. DOM INITIALIZATION
